@@ -1,0 +1,64 @@
+# --- Python Caches & Compiled Files ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+*.manifest
+*.spec
+
+# --- Virtual Environment ---
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# --- IDE / Editor Settings ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- Environment & Secrets ---
+.env
+*.env
+
+# --- Database / Alembic ---
+alembic/versions/*.pyc
+alembic/__pycache__/
+# Keep Alembic folder but ignore generated version files if not needed
+# Uncomment below if you want to ignore all migration scripts
+# alembic/versions/
+
+# --- Logs / Temp Files ---
+*.log
+logs/
+*.bak
+*.tmp
+
+# --- Coverage / Test / Reports ---
+.coverage
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+coverage.xml
+*.cover
+.cache
+
+# --- Dependency Caches ---
+pip-wheel-metadata/
+__pypackages__/
+*.egg-info/
+dist/
+build/
+
+# --- OS / Misc ---
+*.sqlite3
