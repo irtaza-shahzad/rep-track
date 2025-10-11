@@ -1,32 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.user_model import User
-from app.api.schemas.user_schema import UserCreate, UserUpdate
-# from app.core.security import hash_password
-
-
-def create_user(db: Session, user: UserCreate) -> User:
-    existing_user: User | None = db.query(User).filter(User.email == user.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Email already in use"
-        )
-    
-    new_user = User(
-        name=user.name,
-        email=user.email,
-        password=user.password  # hash later with hash_password(user.password)
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
-
+from app.api.schemas.user_schema import UserUpdate
 
 def get_all_users(db: Session) -> list[User]:
     return db.query(User).all()
-
 
 def get_user_by_id(db: Session, user_id: int) -> User:
     user = db.query(User).filter(User.id == user_id).first()
@@ -37,7 +15,6 @@ def get_user_by_id(db: Session, user_id: int) -> User:
         )
     return user
 
-
 def update_user(db: Session, user_id: int, payload: UserUpdate) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -47,14 +24,13 @@ def update_user(db: Session, user_id: int, payload: UserUpdate) -> User:
         )
 
     if payload.name:
-        user.name = payload.name  # type: ignore[attr-defined]
+        user.name = payload.name 
     if payload.password:
-        user.password = payload.password  # type: ignore[attr-defined]
+        user.password = payload.password
 
     db.commit()
     db.refresh(user)
     return user
-
 
 def delete_user(db: Session, user_id: int) -> bool:
     user = db.query(User).filter(User.id == user_id).first()

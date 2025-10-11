@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.schemas.user_schema import UserCreate, UserUpdate, UserResponse
@@ -6,23 +6,13 @@ from app.api.services import user_service
 from app.api.common.response import APIResponse
 from app.api.common.response_types import success_response, created_response
 from app.api.common.exception_responses import standard_responses
+from app.core.security.dependencies import verify_jwt
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
-@router.post(
-    "/",
-    response_model=APIResponse,
-    summary="Create a new user",
-    status_code=status.HTTP_201_CREATED,
-    responses={**standard_responses},
-)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    new_user = user_service.create_user(db, user)
-    user_data = UserResponse.model_validate(new_user)
-    return created_response(user_data)
-
 @router.get(
     "/",
+    dependencies=[Depends(verify_jwt)],
     response_model=APIResponse,
     summary="Get all users",
     responses={**standard_responses},
@@ -34,6 +24,7 @@ def get_all_users(db: Session = Depends(get_db)):
 
 @router.get(
     "/{user_id}",
+    dependencies=[Depends(verify_jwt)],
     response_model=APIResponse,
     summary="Get a user by user ID",
     responses={**standard_responses},
@@ -45,6 +36,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 @router.put(
     "/{user_id}",
+    dependencies=[Depends(verify_jwt)],
     response_model=APIResponse,
     summary="Update user details using user ID",
     responses={**standard_responses},
@@ -56,6 +48,7 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
 
 @router.delete(
     "/{user_id}",
+    dependencies=[Depends(verify_jwt)],
     response_model=APIResponse,
     summary="Delete a user using user ID",
     responses={**standard_responses},
