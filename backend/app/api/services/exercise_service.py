@@ -4,11 +4,10 @@ from app.models.exercise_model import Exercise
 from app.models.user_model import User
 from app.api.schemas.exercise_schema import ExerciseCreate, ExerciseUpdate
 
-
 def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None = None) -> Exercise:
     """
     Creates a new exercise.
-    - If an exercise with the same name already exists (global or for this user), return that existing one.
+    - If an exercise with the same name already exists (global or for this user), throw a conflict error.
     - Otherwise, create a new exercise.
     - If a user_id is provided (user-added exercise), link it to that user.
     """
@@ -19,9 +18,11 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
         .first()
     )
     if existing_exercise:
-        return existing_exercise
-
-    # Optional validation: Check if user exists
+        raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Exercise.name already exists",
+            )
+        
     if user_id is not None:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -30,7 +31,6 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
                 detail=f"User with ID {user_id} not found",
             )
 
-    # ✅ Ensure Enums are stored as plain string values
     new_exercise = Exercise(
         name=exercise.name,
         description=exercise.description,
@@ -44,7 +44,6 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
     db.commit()
     db.refresh(new_exercise)
     return new_exercise
-
 
 def get_all_exercises(db: Session, user_id: int) -> list[Exercise]:
     """
@@ -64,7 +63,6 @@ def get_all_exercises(db: Session, user_id: int) -> list[Exercise]:
         )
     return exercises
 
-
 def get_exercise_by_id(db: Session, exercise_id: int, user_id: int) -> Exercise:
     """
     Fetch exercise if it’s global or owned by this user.
@@ -81,7 +79,6 @@ def get_exercise_by_id(db: Session, exercise_id: int, user_id: int) -> Exercise:
             detail=f"Exercise with ID {exercise_id} not found or not accessible",
         )
     return exercise
-
 
 def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user_id: int) -> Exercise:
     """
@@ -106,7 +103,6 @@ def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user
             detail="You can only update your own exercises",
         )
 
-    # ✅ Apply updates safely for enums
     if payload.description is not None:
         exercise.description = payload.description
     if payload.category is not None:
@@ -119,7 +115,6 @@ def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user
     db.commit()
     db.refresh(exercise)
     return exercise
-
 
 def delete_exercise(db: Session, exercise_id: int, user_id: int) -> bool:
     """
