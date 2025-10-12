@@ -20,7 +20,7 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
     if existing_exercise:
         raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Exercise.name already exists",
+                detail=f"Exercise with this name already exists",
             )
         
     if user_id is not None:
@@ -56,16 +56,11 @@ def get_all_exercises(db: Session, user_id: int) -> list[Exercise]:
         .filter((Exercise.user_id == None) | (Exercise.user_id == user_id))
         .all()
     )
-    if not exercises:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No exercises found for this user or globally",
-        )
     return exercises
 
 def get_exercise_by_id(db: Session, exercise_id: int, user_id: int) -> Exercise:
     """
-    Fetch exercise if it’s global or owned by this user.
+    Fetch exercise if its global or owned by this user.
     """
     exercise = (
         db.query(Exercise)

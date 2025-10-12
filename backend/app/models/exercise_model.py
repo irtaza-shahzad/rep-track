@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 from app.core.database import Base
 import enum
 
-
 class MuscleGroup(enum.Enum):
     Chest = "Chest"
     Back = "Back"
@@ -15,7 +14,6 @@ class MuscleGroup(enum.Enum):
     FullBody = "FullBody"
     Other = "Other"
 
-
 class Category(enum.Enum):
     Strength = "Strength"
     Cardio = "Cardio"
@@ -23,12 +21,10 @@ class Category(enum.Enum):
     Mobility = "Mobility"
     Other = "Other"
 
-
 class Difficulty(enum.Enum):
     Beginner = "Beginner"
     Intermediate = "Intermediate"
     Advanced = "Advanced"
-
 
 class Exercise(Base):
     __tablename__ = "exercises"
