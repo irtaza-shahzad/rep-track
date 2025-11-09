@@ -75,7 +75,7 @@ class ExerciseResponse(BaseModel):
     difficulty: Difficulty
     muscle_group: MuscleGroup
     user_id: Optional[int]
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = {
         "from_attributes": True,

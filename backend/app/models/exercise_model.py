@@ -43,3 +43,5 @@ class Exercise(Base):
     __table_args__ = (
         UniqueConstraint("name", "user_id", name="uq_exercise_name_user"),
     )
+
+    template_exercises = relationship("TemplateExercise", back_populates="exercise", cascade="all, delete-orphan")

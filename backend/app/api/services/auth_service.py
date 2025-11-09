@@ -4,6 +4,11 @@ from app.models.user_model import User
 from app.api.schemas.user_schema import UserCreate
 from app.core.security.hashing import hash_password, verify_password
 from app.core.security.jwt_handler import create_access_token
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from app.core.database import get_db
+from jose import JWTError, jwt
+from app.core.config import settings
 
 def signup_local(db: Session, payload: UserCreate):
     existing = db.query(User).filter(User.email == payload.email).first()
@@ -33,3 +38,31 @@ def authenticate_local(db: Session, email: str, password: str):
     
     token = create_access_token({"sub": str(user.id), "email": user.email})
     return user, token
+
+    # new code 
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")  # adjust if your login path is different
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+
+    return user
