@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from app.models.exercise_model import Exercise
+from app.models.exercise_model import Exercise, Category
 from app.models.user_model import User
 from app.api.schemas.exercise_schema import ExerciseCreate, ExerciseUpdate
+from sqlalchemy import or_
+
 
 def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None = None) -> Exercise:
     """
@@ -19,10 +21,10 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
     )
     if existing_exercise:
         raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Exercise with this name already exists",
-            )
-        
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Exercise with this name already exists",
+        )
+
     if user_id is not None:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
@@ -45,6 +47,7 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
     db.refresh(new_exercise)
     return new_exercise
 
+
 def get_all_exercises(db: Session, user_id: int) -> list[Exercise]:
     """
     Get all exercises that are either:
@@ -57,6 +60,7 @@ def get_all_exercises(db: Session, user_id: int) -> list[Exercise]:
         .all()
     )
     return exercises
+
 
 def get_exercise_by_id(db: Session, exercise_id: int, user_id: int) -> Exercise:
     """
@@ -74,6 +78,57 @@ def get_exercise_by_id(db: Session, exercise_id: int, user_id: int) -> Exercise:
             detail=f"Exercise with ID {exercise_id} not found or not accessible",
         )
     return exercise
+
+
+def get_exercises_by_name(db: Session, name: str, user_id: int) -> list[Exercise]:
+    """
+    Fetch exercises by partial or full name match (case-insensitive).
+    Includes both global and user-specific exercises.
+    """
+    exercises = (
+        db.query(Exercise)
+        .filter(Exercise.name.ilike(f"%{name}%"))
+        .filter((Exercise.user_id == None) | (Exercise.user_id == user_id))
+        .all()
+    )
+
+    if not exercises:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No exercises found with that name",
+        )
+
+    return exercises
+
+
+def get_exercises_by_category(db: Session, category: str, user_id: int) -> list[Exercise]:
+    """
+    Fetch exercises that belong to a specific category (case-insensitive).
+    Includes both global and user-specific exercises.
+    """
+    try:
+        category_enum = Category[category.capitalize()]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid category name. Valid options: Strength, Cardio, Flexibility, Mobility, Other",
+        )
+
+    exercises = (
+        db.query(Exercise)
+        .filter(Exercise.category == category_enum)
+        .filter((Exercise.user_id == None) | (Exercise.user_id == user_id))
+        .all()
+    )
+
+    if not exercises:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No exercises found in this category",
+        )
+
+    return exercises
+
 
 def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user_id: int) -> Exercise:
     """
@@ -110,6 +165,7 @@ def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user
     db.commit()
     db.refresh(exercise)
     return exercise
+
 
 def delete_exercise(db: Session, exercise_id: int, user_id: int) -> bool:
     """

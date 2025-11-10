@@ -47,6 +47,30 @@ def get_exercise(exercise_id: int, db: Session = Depends(get_db), payload: dict 
     exercise_data = ExerciseResponse.model_validate(exercise)
     return success_response(exercise_data)
 
+@router.get(
+    "/by-name/{name}",
+    response_model=APIResponse,
+    summary="Search exercises by name (partial or full match)",
+    responses={**standard_responses},
+)
+def get_exercises_by_name(name: str, db: Session = Depends(get_db), payload: dict = Depends(verify_jwt)):
+    user_id = payload.get("sub", 0)
+    exercises = exercise_service.get_exercises_by_name(db, name, user_id)
+    exercise_data = [ExerciseResponse.model_validate(e) for e in exercises]
+    return success_response(exercise_data)
+
+@router.get(
+    "/by-category/{category}",
+    response_model=APIResponse,
+    summary="Get exercises by category",
+    responses={**standard_responses},
+)
+def get_exercises_by_category(category: str, db: Session = Depends(get_db), payload: dict = Depends(verify_jwt)):
+    user_id = payload.get("sub", 0)
+    exercises = exercise_service.get_exercises_by_category(db, category, user_id)
+    exercise_data = [ExerciseResponse.model_validate(e) for e in exercises]
+    return success_response(exercise_data)
+
 @router.put(
     "/{exercise_id}",
     response_model=APIResponse,

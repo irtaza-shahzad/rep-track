@@ -14,3 +14,5 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     exercises = relationship("Exercise", back_populates="user")
+
+    templates = relationship("WorkoutTemplate", back_populates="owner", cascade="all, delete-orphan")
