@@ -1,17 +1,23 @@
-# app/api/routers/template_router.py
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 
 from app.core.database import get_db
 from app.api.schemas.template_schema import (
     WorkoutTemplateCreate,
-    WorkoutTemplateOut,
     WorkoutTemplateUpdate,
+    WorkoutTemplateResponse,
 )
 from app.api.services import template_service
-from app.api.services.auth_service import get_current_user  # assuming you already have this from auth
-from app.api.schemas.user_schema import UserResponse  # for type hinting of current_user
+from app.api.services.auth_service import get_current_user
+from app.api.schemas.user_schema import UserResponse
+
+from app.api.common.response_types import (
+    created_response,
+    success_response,
+    
+)
+from app.api.common.response import APIResponse
+from app.api.common.exception_responses import standard_responses
 
 
 router = APIRouter(
@@ -20,61 +26,85 @@ router = APIRouter(
 )
 
 
-# ─────────────────────────────────────────────────────────────
-# Create a new workout template
-# ─────────────────────────────────────────────────────────────
-@router.post("/", response_model=WorkoutTemplateOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=APIResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={**standard_responses}
+)
 def create_template(
     data: WorkoutTemplateCreate,
     db: Session = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
-    return template_service.create_template(db, owner_id=current_user.id, data=data)
+    created = template_service.create_template(db, owner_id=current_user.id, data=data)
+    validated = WorkoutTemplateResponse.model_validate(created)
+    return created_response(validated)
 
 
-# ─────────────────────────────────────────────────────────────
-# Get all templates (user’s own)
-# ─────────────────────────────────────────────────────────────
-@router.get("/", response_model=List[WorkoutTemplateOut])
+@router.get(
+    "/",
+    response_model=APIResponse,
+    responses={**standard_responses}
+)
 def get_all_templates(
     db: Session = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
-    return template_service.get_all_templates(db, owner_id=current_user.id)
+    results = template_service.get_all_templates(db, owner_id=current_user.id)
+    validated = [WorkoutTemplateResponse.model_validate(t) for t in results]
+    return success_response(validated)
 
 
-# ─────────────────────────────────────────────────────────────
-# Get a specific template by ID
-# ─────────────────────────────────────────────────────────────
-@router.get("/{template_id}", response_model=WorkoutTemplateOut)
+@router.get(
+    "/{template_id}",
+    response_model=APIResponse,
+    responses={**standard_responses}
+)
 def get_template_by_id(
     template_id: int,
     db: Session = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
-    return template_service.get_template_by_id(db, template_id, owner_id=current_user.id)
+    template = template_service.get_template_by_id(db, template_id, owner_id=current_user.id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Workout template not found")
+
+    validated = WorkoutTemplateResponse.model_validate(template)
+    return success_response(validated)
 
 
-# ─────────────────────────────────────────────────────────────
-# Update a template
-# ─────────────────────────────────────────────────────────────
-@router.put("/{template_id}", response_model=WorkoutTemplateOut)
+@router.put(
+    "/{template_id}",
+    response_model=APIResponse,
+    responses={**standard_responses}
+)
 def update_template(
     template_id: int,
     data: WorkoutTemplateUpdate,
     db: Session = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
-    return template_service.update_template(db, template_id, owner_id=current_user.id, data=data)
+    updated = template_service.update_template(db, template_id, owner_id=current_user.id, data=data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Workout template not found")
+
+    validated = WorkoutTemplateResponse.model_validate(updated)
+    return success_response(validated)
 
 
-# ─────────────────────────────────────────────────────────────
-# Delete a template
-# ─────────────────────────────────────────────────────────────
-@router.delete("/{template_id}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{template_id}",
+    response_model=APIResponse,
+    responses={**standard_responses}
+)
 def delete_template(
     template_id: int,
     db: Session = Depends(get_db),
     current_user: UserResponse = Depends(get_current_user)
 ):
-    return template_service.delete_template(db, template_id, owner_id=current_user.id)
+    deleted = template_service.delete_template(db, template_id, owner_id=current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Workout template not found")
+
+    return success_response()

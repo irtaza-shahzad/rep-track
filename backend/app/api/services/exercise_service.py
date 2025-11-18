@@ -4,6 +4,8 @@ from app.models.exercise_model import Exercise, Category
 from app.models.user_model import User
 from app.api.schemas.exercise_schema import ExerciseCreate, ExerciseUpdate
 from sqlalchemy import or_
+from datetime import date 
+from app.api.services import streak_service
 
 
 def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None = None) -> Exercise:
@@ -45,6 +47,7 @@ def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None =
     db.add(new_exercise)
     db.commit()
     db.refresh(new_exercise)
+
     return new_exercise
 
 

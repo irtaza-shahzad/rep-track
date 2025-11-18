@@ -1,15 +1,10 @@
-# app/api/services/template_service.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-
 from app.models.template_model import WorkoutTemplate
 from app.models.template_exercise_model import TemplateExercise
 from app.models.exercise_model import Exercise
-from app.api.schemas.template_schema import (
-    WorkoutTemplateCreate,
-    WorkoutTemplateUpdate,
-    TemplateExerciseCreate,
-)
+from app.api.schemas.template_schema import WorkoutTemplateCreate, WorkoutTemplateUpdate, TemplateExerciseCreate
+
 
 def create_template(db: Session, owner_id: int, data: WorkoutTemplateCreate):
     # Check if the user already has a template with this name
@@ -40,12 +35,12 @@ def create_template(db: Session, owner_id: int, data: WorkoutTemplateCreate):
     # Add exercises if provided
     if data.exercises:
         for idx, ex in enumerate(data.exercises):
-            # Find exercise by name instead of ID
-            exercise = db.query(Exercise).filter(Exercise.name == ex.exercise_name).first()
+            # Lookup exercise by ID now
+            exercise = db.query(Exercise).filter(Exercise.id == ex.exercise_id).first()
             if not exercise:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Exercise '{ex.exercise_name}' not found"
+                    detail=f"Exercise with ID {ex.exercise_id} not found"
                 )
 
             template_exercise = TemplateExercise(
@@ -71,8 +66,15 @@ def create_template(db: Session, owner_id: int, data: WorkoutTemplateCreate):
 
     return template
 
+
 def get_all_templates(db: Session, owner_id: int):
-    return db.query(WorkoutTemplate).filter(WorkoutTemplate.owner_id == owner_id).all()
+    templates = db.query(WorkoutTemplate).filter(WorkoutTemplate.owner_id == owner_id).all()
+
+    for template in templates:
+        for te in template.template_exercises:
+            te.exercise_name = te.exercise.name if getattr(te, "exercise", None) else None
+
+    return templates
 
 
 def get_template_by_id(db: Session, template_id: int, owner_id: int):
@@ -82,6 +84,10 @@ def get_template_by_id(db: Session, template_id: int, owner_id: int):
     ).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+
+    for te in template.template_exercises:
+        te.exercise_name = te.exercise.name if getattr(te, "exercise", None) else None
+
     return template
 
 
@@ -90,13 +96,12 @@ def update_template(db: Session, template_id: int, owner_id: int, data: WorkoutT
 
     # Update name and description if provided
     if data.name is not None:
-        # Check for duplicate name if changed
         existing_template = (
             db.query(WorkoutTemplate)
             .filter(
                 WorkoutTemplate.owner_id == owner_id,
                 WorkoutTemplate.name == data.name,
-                WorkoutTemplate.id != template_id  # Exclude current
+                WorkoutTemplate.id != template_id
             )
             .first()
         )
@@ -114,37 +119,36 @@ def update_template(db: Session, template_id: int, owner_id: int, data: WorkoutT
         existing_exercises = {ex.id: ex for ex in template.template_exercises}
 
         for ex_data in data.exercises:
-            # Update existing exercise (requires ex_data.id)
+            # Update existing exercise
             if hasattr(ex_data, "id") and ex_data.id and ex_data.id in existing_exercises:
-                te = existing_exercises[ex_data.id]
+                tempexercise = existing_exercises[ex_data.id]
 
-                if ex_data.exercise_name:
-                    exercise = db.query(Exercise).filter(Exercise.name == ex_data.exercise_name).first()
+                if ex_data.exercise_id:
+                    exercise = db.query(Exercise).filter(Exercise.id == ex_data.exercise_id).first()
                     if not exercise:
                         raise HTTPException(
                             status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"Exercise '{ex_data.exercise_name}' not found"
+                            detail=f"Exercise with ID {ex_data.exercise_id} not found"
                         )
-                    te.exercise_id = exercise.id
+                    tempexercise.exercise_id = exercise.id
 
-                # Update other fields
                 for field, value in ex_data.dict(exclude_unset=True).items():
-                    if field not in ("id", "exercise_name"):
-                        setattr(te, field, value)
+                    if field not in ("id", "exercise_id"):
+                        setattr(tempexercise, field, value)
 
             # Add new exercise
             else:
-                if not ex_data.exercise_name:
+                if not ex_data.exercise_id:
                     raise HTTPException(
                         status_code=400,
-                        detail="New exercises must include 'exercise_name'"
+                        detail="New exercises must include 'exercise_id'"
                     )
 
-                exercise = db.query(Exercise).filter(Exercise.name == ex_data.exercise_name).first()
+                exercise = db.query(Exercise).filter(Exercise.id == ex_data.exercise_id).first()
                 if not exercise:
                     raise HTTPException(
                         status_code=404,
-                        detail=f"Exercise '{ex_data.exercise_name}' not found"
+                        detail=f"Exercise with ID {ex_data.exercise_id} not found"
                     )
 
                 new_ex = TemplateExercise(
@@ -159,7 +163,6 @@ def update_template(db: Session, template_id: int, owner_id: int, data: WorkoutT
                 )
                 db.add(new_ex)
 
-        # Optional: delete exercises not included in update
         existing_ids = {ex.id for ex in data.exercises if hasattr(ex, "id") and ex.id}
         for ex_id in list(existing_exercises.keys()):
             if ex_id not in existing_ids:
@@ -168,12 +171,12 @@ def update_template(db: Session, template_id: int, owner_id: int, data: WorkoutT
     db.commit()
     db.refresh(template)
 
-    # Add exercise_name for output
-    for te in template.template_exercises:
-        exercise = db.query(Exercise).filter(Exercise.id == te.exercise_id).first()
-        te.exercise_name = exercise.name if exercise else None
+    for tempexercise in template.template_exercises:
+        exercise = db.query(Exercise).filter(Exercise.id == tempexercise.exercise_id).first()
+        tempexercise.exercise_name = exercise.name if exercise else None
 
     return template
+
 
 def delete_template(db: Session, template_id: int, owner_id: int):
     template = get_template_by_id(db, template_id, owner_id)

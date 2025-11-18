@@ -1,14 +1,14 @@
-# app/api/schemas/template_schema.py
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
+
 class TemplateExerciseBase(BaseModel):
-    exercise_name: str = Field(..., description="Name of the exercise (system will resolve to ID)")
+    exercise_id: int = Field(..., description="ID of the exercise (select from existing exercises)")
     position: Optional[int] = Field(default=0, description="Order of exercise in template")
     sets: Optional[int] = None
     reps: Optional[int] = None
-    duration_seconds: Optional[int] = Field(None, description="Duration of exercise in seconds (optional)", example=60)
+    duration_seconds: Optional[int] = Field(None, description="Duration of exercise in seconds", example=60)
     rest_seconds: Optional[int] = None
     notes: Optional[str] = None
 
@@ -18,8 +18,7 @@ class TemplateExerciseCreate(TemplateExerciseBase):
 
 
 class TemplateExerciseUpdate(BaseModel):
-    id: Optional[int] = Field(None, description="ID of the template exercise (required for existing exercises)")
-    exercise_name: Optional[str] = Field(None, description="New exercise name (optional)")
+    exercise_id: Optional[int] = None
     position: Optional[int] = None
     sets: Optional[int] = None
     reps: Optional[int] = None
@@ -28,11 +27,10 @@ class TemplateExerciseUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-
-class TemplateExerciseOut(BaseModel):
+class TemplateExerciseResponse(BaseModel):
     id: int
     exercise_id: int
-    exercise_name: Optional[str] = None 
+    exercise_name: Optional[str] = None
     position: Optional[int] = None
     sets: Optional[int] = None
     reps: Optional[int] = None
@@ -40,9 +38,8 @@ class TemplateExerciseOut(BaseModel):
     rest_seconds: Optional[int] = None
     notes: Optional[str] = None
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
+
 
 class WorkoutTemplateBase(BaseModel):
     name: str = Field(..., example="Push Day Routine")
@@ -50,21 +47,7 @@ class WorkoutTemplateBase(BaseModel):
 
 
 class WorkoutTemplateCreate(WorkoutTemplateBase):
-    exercises: Optional[List[TemplateExerciseCreate]] = Field(
-        default=[],
-        description="List of exercises included in this workout template",
-        example=[
-            {
-                "exercise_name": "Bench Press",
-                "position": 1,
-                "sets": 3,
-                "reps": 10,
-                "duration_seconds": 60,
-                "rest_seconds": 60,
-                "notes": "Use moderate weight"
-            }
-        ]
-    )
+    exercises: Optional[List[TemplateExerciseCreate]] = Field(default=[])
 
     model_config = {
         "json_schema_extra": {
@@ -73,7 +56,7 @@ class WorkoutTemplateCreate(WorkoutTemplateBase):
                 "description": "Chest, shoulders, and triceps workout",
                 "exercises": [
                     {
-                        "exercise_name": "Bench Press",
+                        "exercise_id": 1,
                         "position": 1,
                         "sets": 3,
                         "reps": 10,
@@ -93,15 +76,13 @@ class WorkoutTemplateUpdate(BaseModel):
     exercises: Optional[List[TemplateExerciseUpdate]] = None
 
 
-class WorkoutTemplateOut(BaseModel):
+class WorkoutTemplateResponse(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
     owner_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    template_exercises: List[TemplateExerciseOut] = []
+    template_exercises: List[TemplateExerciseResponse] = []
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
