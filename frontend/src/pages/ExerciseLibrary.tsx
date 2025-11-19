@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Dumbbell, Heart, TrendingUp, Plus, Play, Edit2, Trash2 } from 'lucide-react';
+import { Search, Dumbbell, Weight, Cable, User, Activity, Plus, Play, Edit2, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 
 interface Exercise {
@@ -15,6 +16,7 @@ interface Exercise {
   name: string;
   category: string;
   icon: any;
+  isSystem?: boolean;
 }
 
 interface WorkoutTemplate {
@@ -25,6 +27,7 @@ interface WorkoutTemplate {
 }
 
 const ExerciseLibrary = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
@@ -35,18 +38,67 @@ const ExerciseLibrary = () => {
   const { toast } = useToast();
 
   const [exercises, setExercises] = useState<Exercise[]>([
-    { id: '1', name: 'Bench Press', category: 'Chest', icon: Dumbbell },
-    { id: '2', name: 'Squat', category: 'Legs', icon: TrendingUp },
-    { id: '3', name: 'Deadlift', category: 'Back', icon: TrendingUp },
-    { id: '4', name: 'Overhead Press', category: 'Shoulders', icon: Dumbbell },
-    { id: '5', name: 'Pull-ups', category: 'Back', icon: Heart },
-    { id: '6', name: 'Rows', category: 'Back', icon: Dumbbell },
-    { id: '7', name: 'Bicep Curls', category: 'Arms', icon: Dumbbell },
-    { id: '8', name: 'Tricep Extensions', category: 'Arms', icon: Dumbbell },
-    { id: '9', name: 'Leg Press', category: 'Legs', icon: TrendingUp },
-    { id: '10', name: 'Lunges', category: 'Legs', icon: TrendingUp },
-    { id: '11', name: 'Lat Pulldown', category: 'Back', icon: Heart },
-    { id: '12', name: 'Chest Fly', category: 'Chest', icon: Dumbbell },
+    // Chest
+    { id: '1', name: 'Barbell Bench Press', category: 'Chest', icon: Weight, isSystem: true },
+    { id: '2', name: 'Incline Barbell Bench Press', category: 'Chest', icon: Weight, isSystem: true },
+    { id: '3', name: 'Flat Dumbbell Press', category: 'Chest', icon: Dumbbell, isSystem: true },
+    { id: '4', name: 'Incline Dumbbell Press', category: 'Chest', icon: Dumbbell, isSystem: true },
+    { id: '5', name: 'Decline Bench Press', category: 'Chest', icon: Weight, isSystem: true },
+    { id: '6', name: 'Chest Dips', category: 'Chest', icon: User, isSystem: true },
+    { id: '7', name: 'Cable Fly', category: 'Chest', icon: Cable, isSystem: true },
+    { id: '8', name: 'Incline Cable Fly', category: 'Chest', icon: Cable, isSystem: true },
+    { id: '9', name: 'Pec Deck Machine', category: 'Chest', icon: Cable, isSystem: true },
+    { id: '10', name: 'Push-Ups', category: 'Chest', icon: User, isSystem: true },
+    
+    // Back
+    { id: '11', name: 'Deadlift', category: 'Back', icon: Weight, isSystem: true },
+    { id: '12', name: 'Pull-Ups', category: 'Back', icon: User, isSystem: true },
+    { id: '13', name: 'Chin-Ups', category: 'Back', icon: User, isSystem: true },
+    { id: '14', name: 'Lat Pulldown', category: 'Back', icon: Cable, isSystem: true },
+    { id: '15', name: 'Barbell Bent-Over Row', category: 'Back', icon: Weight, isSystem: true },
+    { id: '16', name: 'T-Bar Row', category: 'Back', icon: Cable, isSystem: true },
+    { id: '17', name: 'Seated Cable Row', category: 'Back', icon: Cable, isSystem: true },
+    { id: '18', name: 'Single-Arm Dumbbell Row', category: 'Back', icon: Dumbbell, isSystem: true },
+    { id: '19', name: 'Chest-Supported Row', category: 'Back', icon: Cable, isSystem: true },
+    { id: '20', name: 'Face Pulls', category: 'Back', icon: Cable, isSystem: true },
+    
+    // Legs
+    { id: '21', name: 'Barbell Back Squat', category: 'Legs', icon: Weight, isSystem: true },
+    { id: '22', name: 'Barbell Front Squat', category: 'Legs', icon: Weight, isSystem: true },
+    { id: '23', name: 'Leg Press', category: 'Legs', icon: Cable, isSystem: true },
+    { id: '24', name: 'Romanian Deadlift', category: 'Legs', icon: Weight, isSystem: true },
+    { id: '25', name: 'Conventional Deadlift', category: 'Legs', icon: Weight, isSystem: true },
+    { id: '26', name: 'Bulgarian Split Squat', category: 'Legs', icon: Activity, isSystem: true },
+    { id: '27', name: 'Walking Lunges', category: 'Legs', icon: Activity, isSystem: true },
+    { id: '28', name: 'Leg Extensions', category: 'Legs', icon: Cable, isSystem: true },
+    { id: '29', name: 'Hamstring Curls', category: 'Legs', icon: Cable, isSystem: true },
+    { id: '30', name: 'Hip Thrusts', category: 'Legs', icon: Activity, isSystem: true },
+    { id: '31', name: 'Glute Bridges', category: 'Legs', icon: User, isSystem: true },
+    { id: '32', name: 'Calf Raises', category: 'Legs', icon: Activity, isSystem: true },
+    
+    // Shoulders
+    { id: '33', name: 'Overhead Barbell Press', category: 'Shoulders', icon: Weight, isSystem: true },
+    { id: '34', name: 'Dumbbell Shoulder Press', category: 'Shoulders', icon: Dumbbell, isSystem: true },
+    { id: '35', name: 'Arnold Press', category: 'Shoulders', icon: Dumbbell, isSystem: true },
+    { id: '36', name: 'Lateral Raises', category: 'Shoulders', icon: Dumbbell, isSystem: true },
+    { id: '37', name: 'Cable Lateral Raises', category: 'Shoulders', icon: Cable, isSystem: true },
+    { id: '38', name: 'Front Raises', category: 'Shoulders', icon: Dumbbell, isSystem: true },
+    { id: '39', name: 'Rear Delt Fly', category: 'Shoulders', icon: Dumbbell, isSystem: true },
+    { id: '40', name: 'Face Pulls', category: 'Shoulders', icon: Cable, isSystem: true },
+    
+    // Arms
+    { id: '41', name: 'Barbell Bicep Curls', category: 'Arms', icon: Weight, isSystem: true },
+    { id: '42', name: 'Dumbbell Hammer Curls', category: 'Arms', icon: Dumbbell, isSystem: true },
+    { id: '43', name: 'Preacher Curls', category: 'Arms', icon: Weight, isSystem: true },
+    { id: '44', name: 'Tricep Pushdowns', category: 'Arms', icon: Cable, isSystem: true },
+    { id: '45', name: 'Skull Crushers', category: 'Arms', icon: Weight, isSystem: true },
+    { id: '46', name: 'Overhead Dumbbell Tricep Extension', category: 'Arms', icon: Dumbbell, isSystem: true },
+    
+    // Core
+    { id: '47', name: 'Planks', category: 'Core', icon: User, isSystem: true },
+    { id: '48', name: 'Hanging Leg Raises', category: 'Core', icon: User, isSystem: true },
+    { id: '49', name: 'Ab Wheel Rollouts', category: 'Core', icon: Activity, isSystem: true },
+    { id: '50', name: 'Cable Woodchoppers', category: 'Core', icon: Cable, isSystem: true },
   ]);
 
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([
@@ -55,7 +107,7 @@ const ExerciseLibrary = () => {
     { id: '3', name: 'Leg Day', exercises: ['Squat', 'Leg Press', 'Lunges'], duration: '50 min' },
   ]);
 
-  const categories = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
+  const categories = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'];
 
   const filteredExercises = exercises.filter(ex =>
     ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -115,7 +167,9 @@ const ExerciseLibrary = () => {
       duration: `${selectedExercises.length * 15} min`,
     };
 
-    setTemplates([...templates, newTemplate]);
+    const updatedTemplates = [...templates, newTemplate];
+    setTemplates(updatedTemplates);
+    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
     setNewTemplateName('');
     setSelectedExercises([]);
     setIsAddTemplateOpen(false);
@@ -126,15 +180,14 @@ const ExerciseLibrary = () => {
     });
   };
 
-  const handleStartWorkout = (templateName: string) => {
-    toast({
-      title: "Starting Workout",
-      description: `${templateName} workout started`,
-    });
+  const handleStartWorkout = (template: WorkoutTemplate) => {
+    navigate('/workout', { state: { template } });
   };
 
   const handleDeleteTemplate = (id: string, name: string) => {
-    setTemplates(templates.filter(t => t.id !== id));
+    const updatedTemplates = templates.filter(t => t.id !== id);
+    setTemplates(updatedTemplates);
+    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
     toast({
       title: "Template Deleted",
       description: `${name} has been removed`,
@@ -238,12 +291,14 @@ const ExerciseLibrary = () => {
                           <h3 className="font-semibold mb-1">{exercise.name}</h3>
                           <p className="text-sm text-muted-foreground">{exercise.category}</p>
                         </div>
-                        <button
-                          onClick={() => handleDeleteExercise(exercise.id, exercise.name)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {!exercise.isSystem && (
+                          <button
+                            onClick={() => handleDeleteExercise(exercise.id, exercise.name)}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -341,7 +396,7 @@ const ExerciseLibrary = () => {
                         ))}
                       </div>
                       <Button
-                        onClick={() => handleStartWorkout(template.name)}
+                        onClick={() => handleStartWorkout(template)}
                         className="w-full rounded-xl"
                       >
                         <Play className="h-4 w-4 mr-2" />

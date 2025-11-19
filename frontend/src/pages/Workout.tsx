@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import Layout from '@/components/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { saveWorkout, formatWorkoutDate } from '@/lib/workoutStorage';
+import { updateStreakOnWorkout } from '@/lib/streakStorage';
 
 interface Exercise {
   id: string;
@@ -25,9 +26,23 @@ interface WorkoutSet {
 
 const Workout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
+
+  // Load template if provided
+  useEffect(() => {
+    const template = location.state?.template;
+    if (template && template.exercises) {
+      const templateExercises: Exercise[] = template.exercises.map((name: string, idx: number) => ({
+        id: `${Date.now()}-${idx}`,
+        name,
+        sets: [{ reps: '', weight: '', completed: false }],
+      }));
+      setExercises(templateExercises);
+    }
+  }, [location.state]);
   
   // Timer state
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -191,6 +206,9 @@ const Workout = () => {
     const totalVolume = calculateTotalWeight();
     const finalName = workoutName || `Workout – ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     
+    // Update streak
+    updateStreakOnWorkout();
+    
     // Save the workout to history
     saveWorkout({
       name: finalName,
@@ -201,6 +219,11 @@ const Workout = () => {
       })),
       duration: elapsedSeconds,
       totalVolume: totalVolume
+    });
+    
+    toast({
+      title: motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)],
+      description: "Your workout has been saved.",
     });
     
     navigate('/dashboard');
