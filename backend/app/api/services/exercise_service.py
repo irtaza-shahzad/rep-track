@@ -7,12 +7,6 @@ from sqlalchemy import or_
 
 
 def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None = None) -> Exercise:
-    """
-    Creates a new exercise.
-    - If an exercise with the same name already exists (global or for this user), throw a conflict error.
-    - Otherwise, create a new exercise.
-    - If a user_id is provided (user-added exercise), link it to that user.
-    """
     existing_exercise = (
         db.query(Exercise)
         .filter(Exercise.name == exercise.name)

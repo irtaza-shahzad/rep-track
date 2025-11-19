@@ -1,15 +1,9 @@
-# app/api/services/template_service.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-
 from app.models.template_model import WorkoutTemplate
 from app.models.template_exercise_model import TemplateExercise
 from app.models.exercise_model import Exercise
-from app.api.schemas.template_schema import (
-    WorkoutTemplateCreate,
-    WorkoutTemplateUpdate,
-    TemplateExerciseCreate,
-)
+from app.api.schemas.template_schema import WorkoutTemplateCreate, WorkoutTemplateUpdate, TemplateExerciseCreate
 
 def create_template(db: Session, owner_id: int, data: WorkoutTemplateCreate):
     # Check if the user already has a template with this name
@@ -72,7 +66,15 @@ def create_template(db: Session, owner_id: int, data: WorkoutTemplateCreate):
     return template
 
 def get_all_templates(db: Session, owner_id: int):
-    return db.query(WorkoutTemplate).filter(WorkoutTemplate.owner_id == owner_id).all()
+    templates = db.query(WorkoutTemplate).filter(WorkoutTemplate.owner_id == owner_id).all()
+
+    # Ensure exercise_name is available on each TemplateExercise for Pydantic output
+    for template in templates:
+        for te in template.template_exercises:
+            # relationship 'exercise' should be available (lazy-loaded); guard if not
+            te.exercise_name = te.exercise.name if getattr(te, "exercise", None) else None
+
+    return templates
 
 
 def get_template_by_id(db: Session, template_id: int, owner_id: int):
@@ -82,6 +84,10 @@ def get_template_by_id(db: Session, template_id: int, owner_id: int):
     ).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+    # Populate exercise_name for each TemplateExercise so the response schema can access it
+    for te in template.template_exercises:
+        te.exercise_name = te.exercise.name if getattr(te, "exercise", None) else None
+
     return template
 
 

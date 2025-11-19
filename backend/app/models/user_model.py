@@ -16,3 +16,5 @@ class User(Base):
     exercises = relationship("Exercise", back_populates="user")
 
     templates = relationship("WorkoutTemplate", back_populates="owner", cascade="all, delete-orphan")
+    
+    workout_sessions = relationship("WorkoutSession", back_populates="user", cascade="all, delete-orphan")

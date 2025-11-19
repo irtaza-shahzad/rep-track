@@ -1,4 +1,3 @@
-# app/api/schemas/template_schema.py
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -12,10 +11,8 @@ class TemplateExerciseBase(BaseModel):
     rest_seconds: Optional[int] = None
     notes: Optional[str] = None
 
-
 class TemplateExerciseCreate(TemplateExerciseBase):
     pass
-
 
 class TemplateExerciseUpdate(BaseModel):
     id: Optional[int] = Field(None, description="ID of the template exercise (required for existing exercises)")
@@ -26,8 +23,6 @@ class TemplateExerciseUpdate(BaseModel):
     duration_seconds: Optional[int] = None
     rest_seconds: Optional[int] = None
     notes: Optional[str] = None
-
-
 
 class TemplateExerciseOut(BaseModel):
     id: int
@@ -47,7 +42,6 @@ class TemplateExerciseOut(BaseModel):
 class WorkoutTemplateBase(BaseModel):
     name: str = Field(..., example="Push Day Routine")
     description: Optional[str] = Field(None, example="Chest, shoulders, and triceps workout")
-
 
 class WorkoutTemplateCreate(WorkoutTemplateBase):
     exercises: Optional[List[TemplateExerciseCreate]] = Field(
@@ -91,7 +85,6 @@ class WorkoutTemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     exercises: Optional[List[TemplateExerciseUpdate]] = None
-
 
 class WorkoutTemplateOut(BaseModel):
     id: int
