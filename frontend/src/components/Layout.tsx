@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, History, Library, TrendingUp, Settings } from 'lucide-react';
+import { Home, History, Library, TrendingUp, Settings, Flame } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { getStreakConfig } from '@/lib/streakStorage';
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +11,7 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const streakConfig = getStreakConfig();
 
   const navItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
@@ -22,6 +25,19 @@ const Layout = ({ children }: LayoutProps) => {
 
   return (
     <div className="flex flex-col min-h-screen pb-20 md:pb-0">
+      {/* Streak Badge - Mobile */}
+      {streakConfig && (
+        <div className="fixed top-4 right-4 z-50 md:hidden">
+          <button
+            onClick={() => navigate('/stats')}
+            className="flex items-center gap-1 bg-card border border-border rounded-full px-3 py-1.5 shadow-lg hover:bg-muted transition-colors"
+          >
+            <Flame className="h-4 w-4 text-accent" />
+            <span className="font-semibold text-sm">{streakConfig.currentStreak}</span>
+          </button>
+        </div>
+      )}
+
       <main className="flex-1 animate-fade-in">
         {children}
       </main>
@@ -51,9 +67,20 @@ const Layout = ({ children }: LayoutProps) => {
 
       {/* Side Navigation - Desktop */}
       <nav className="hidden md:flex fixed left-0 top-0 h-screen w-64 bg-card border-r border-border flex-col p-4 card-elevated">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-primary">FitTrack</h1>
-          <p className="text-sm text-muted-foreground">Your Workout Companion</p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-primary">FitTrack</h1>
+            <p className="text-sm text-muted-foreground">Your Workout Companion</p>
+          </div>
+          {streakConfig && (
+            <button
+              onClick={() => navigate('/stats')}
+              className="flex items-center gap-1 bg-accent/10 border border-accent/20 rounded-full px-2 py-1 hover:bg-accent/20 transition-colors"
+            >
+              <Flame className="h-4 w-4 text-accent" />
+              <span className="font-semibold text-sm">{streakConfig.currentStreak}</span>
+            </button>
+          )}
         </div>
         
         <div className="flex-1 space-y-2">

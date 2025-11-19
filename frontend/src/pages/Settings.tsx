@@ -1,4 +1,4 @@
-import { User, Bell, Download, Upload, LogOut, HelpCircle, Mail } from 'lucide-react';
+import { User, Bell, Download, LogOut, HelpCircle, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -59,9 +59,6 @@ const Settings = () => {
                 <Label className="text-sm text-muted-foreground">Email</Label>
                 <p className="font-medium mt-1">user@example.com</p>
               </div>
-              <Button variant="outline" className="w-full md:w-auto rounded-xl">
-                Edit Profile
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -93,7 +90,7 @@ const Settings = () => {
                     Get notified about scheduled workouts
                   </p>
                   <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                    Uses system notifications
+                    Delivered via email
                   </p>
                 </div>
                 <Switch 
@@ -147,31 +144,17 @@ const Settings = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start rounded-xl h-auto py-3"
-                  onClick={() => toast({ title: "Export Started", description: "Your workout data is being prepared for download." })}
-                >
-                  <Download className="h-4 w-4 mr-3" />
-                  <div className="text-left">
-                    <p className="font-medium">Export Workout Data</p>
-                    <p className="text-xs text-muted-foreground">Download your complete history</p>
-                  </div>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start rounded-xl h-auto py-3"
-                  onClick={() => toast({ title: "Import", description: "Import functionality coming soon." })}
-                >
-                  <Upload className="h-4 w-4 mr-3" />
-                  <div className="text-left">
-                    <p className="font-medium">Import Workout Data</p>
-                    <p className="text-xs text-muted-foreground">Backup or transfer your workout history</p>
-                  </div>
-                </Button>
-              </div>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start rounded-xl h-auto py-3"
+                onClick={() => toast({ title: "Export Started", description: "Your workout data is being prepared for download." })}
+              >
+                <Download className="h-4 w-4 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium">Export Workout Data</p>
+                  <p className="text-xs text-muted-foreground">Download your complete history</p>
+                </div>
+              </Button>
             </CardContent>
           </Card>
         </div>

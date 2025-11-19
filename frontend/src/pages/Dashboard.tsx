@@ -1,11 +1,38 @@
+import { useState, useEffect } from 'react';
 import { Plus, TrendingUp, Target, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Layout from '@/components/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { StartWorkoutDialog } from '@/components/StartWorkoutDialog';
+import { TemplatePickerDialog } from '@/components/TemplatePickerDialog';
+
+interface WorkoutTemplate {
+  id: string;
+  name: string;
+  exercises: string[];
+  duration: string;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showStartDialog, setShowStartDialog] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const isWorkoutActive = location.state?.workoutActive || false;
+
+  useEffect(() => {
+    // Load templates from localStorage
+    const stored = localStorage.getItem('workout_templates');
+    if (stored) {
+      try {
+        setTemplates(JSON.parse(stored));
+      } catch {
+        setTemplates([]);
+      }
+    }
+  }, []);
 
   const stats = [
     { label: 'Workouts This Week', value: '4', icon: Target, color: 'text-primary' },
@@ -18,6 +45,30 @@ const Dashboard = () => {
     { name: 'Leg Day', date: 'Yesterday', exercises: 6, duration: '52 min' },
     { name: 'Core & Cardio', date: '2 days ago', exercises: 5, duration: '30 min' },
   ];
+
+  const handleStartWorkout = () => {
+    setShowStartDialog(true);
+  };
+
+  const handleStartEmpty = () => {
+    setShowStartDialog(false);
+    navigate('/workout', { state: { template: null } });
+  };
+
+  const handleStartFromTemplate = () => {
+    setShowStartDialog(false);
+    setShowTemplatePicker(true);
+  };
+
+  const handleSelectTemplate = (template: WorkoutTemplate) => {
+    setShowTemplatePicker(false);
+    navigate('/workout', { state: { template } });
+  };
+
+  // Don't show dashboard if workout is active
+  if (isWorkoutActive) {
+    return null;
+  }
 
   return (
     <Layout>
@@ -55,7 +106,7 @@ const Dashboard = () => {
           <Button 
             size="lg" 
             className="w-full md:w-auto"
-            onClick={() => navigate('/workout')}
+            onClick={handleStartWorkout}
           >
             <Plus className="mr-2 h-5 w-5" />
             Start New Workout
@@ -89,6 +140,22 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Start Workout Dialog */}
+        <StartWorkoutDialog
+          open={showStartDialog}
+          onOpenChange={setShowStartDialog}
+          onStartEmpty={handleStartEmpty}
+          onStartFromTemplate={handleStartFromTemplate}
+        />
+
+        {/* Template Picker Dialog */}
+        <TemplatePickerDialog
+          open={showTemplatePicker}
+          onOpenChange={setShowTemplatePicker}
+          templates={templates}
+          onSelectTemplate={handleSelectTemplate}
+        />
       </div>
     </Layout>
   );
