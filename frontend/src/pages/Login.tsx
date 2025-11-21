@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,14 +8,24 @@ import { Dumbbell } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    // Set initial state based on navigation from Welcome page
+    if (location.state?.isSignUp !== undefined) {
+      setIsLogin(!location.state.isSignUp);
+    }
+  }, [location]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Mock authentication
-    localStorage.setItem('fittrack_user', JSON.stringify({ email }));
+    const userData = isLogin ? { email } : { email, fullName };
+    localStorage.setItem('fittrack_user', JSON.stringify(userData));
     navigate('/dashboard');
   };
 
@@ -34,6 +44,21 @@ const Login = () => {
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                  className="rounded-xl"
+                />
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

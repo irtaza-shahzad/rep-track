@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import Layout from '@/components/Layout';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { saveWorkout, formatWorkoutDate } from '@/lib/workoutStorage';
+import { updateStreakOnWorkout } from '@/lib/streakStorage';
+import PageHeader from '@/components/PageHeader';
 
 interface Exercise {
   id: string;
@@ -21,17 +23,39 @@ interface WorkoutSet {
   weight: string;
   rpe?: number;
   completed?: boolean;
+  isWarmup?: boolean;
+  isDropset?: boolean;
+  isFailure?: boolean;
 }
 
 const Workout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
+
+  // Load template if provided
+  useEffect(() => {
+    const template = location.state?.template;
+    if (template && template.exercises) {
+      const templateExercises: Exercise[] = template.exercises.map((name: string, idx: number) => ({
+        id: `${Date.now()}-${idx}`,
+        name,
+        sets: [{ reps: '', weight: '', completed: false }],
+      }));
+      setExercises(templateExercises);
+    }
+  }, [location.state]);
   
   // Timer state
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  
+  // Rest timer state
+  const [restTimerActive, setRestTimerActive] = useState(false);
+  const [restSecondsRemaining, setRestSecondsRemaining] = useState(0);
+  const [restDuration, setRestDuration] = useState(90); // default 90 seconds
   
   // RPE modal state
   const [rpeModalOpen, setRpeModalOpen] = useState(false);
@@ -67,6 +91,23 @@ const Workout = () => {
     }
     return () => clearInterval(interval);
   }, [isPaused, showSummary]);
+
+  // Rest timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (restTimerActive && restSecondsRemaining > 0) {
+      interval = setInterval(() => {
+        setRestSecondsRemaining(prev => {
+          if (prev <= 1) {
+            setRestTimerActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [restTimerActive, restSecondsRemaining]);
 
   // Load workout count from localStorage
   useEffect(() => {
@@ -141,6 +182,12 @@ const Workout = () => {
         : ex
     ));
 
+    // Start rest timer
+    if (!set.isWarmup) {
+      setRestSecondsRemaining(restDuration);
+      setRestTimerActive(true);
+    }
+
     // Open RPE modal
     setPendingSetId({ exerciseId, setIndex });
     setCurrentRpe([5]);
@@ -169,6 +216,24 @@ const Workout = () => {
     });
   };
 
+  const toggleSetType = (exerciseId: string, setIndex: number, type: 'warmup' | 'dropset' | 'failure') => {
+    setExercises(exercises.map(ex => 
+      ex.id === exerciseId 
+        ? {
+            ...ex,
+            sets: ex.sets.map((set, idx) => {
+              if (idx === setIndex) {
+                if (type === 'warmup') return { ...set, isWarmup: !set.isWarmup };
+                if (type === 'dropset') return { ...set, isDropset: !set.isDropset };
+                if (type === 'failure') return { ...set, isFailure: !set.isFailure };
+              }
+              return set;
+            })
+          }
+        : ex
+    ));
+  };
+
   const calculateTotalWeight = () => {
     return exercises.reduce((total, exercise) => {
       return total + exercise.sets.reduce((exerciseTotal, set) => {
@@ -191,6 +256,9 @@ const Workout = () => {
     const totalVolume = calculateTotalWeight();
     const finalName = workoutName || `Workout – ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     
+    // Update streak
+    updateStreakOnWorkout();
+    
     // Save the workout to history
     saveWorkout({
       name: finalName,
@@ -203,6 +271,11 @@ const Workout = () => {
       totalVolume: totalVolume
     });
     
+    toast({
+      title: motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)],
+      description: "Your workout has been saved.",
+    });
+    
     navigate('/dashboard');
   };
 
@@ -212,7 +285,8 @@ const Workout = () => {
 
     return (
       <Layout>
-        <div className="p-4 md:pl-72 md:p-8 max-w-4xl min-h-screen flex items-center justify-center">
+        <div className="w-full min-h-screen flex items-center justify-center">
+          <div className="max-w-md mx-auto p-4">
           <Card className="w-full max-w-md animate-fade-in card-elevated">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl mb-4">{randomMessage}</CardTitle>
@@ -253,6 +327,7 @@ const Workout = () => {
               </Button>
             </CardContent>
           </Card>
+          </div>
         </div>
       </Layout>
     );
@@ -260,18 +335,18 @@ const Workout = () => {
 
   return (
     <Layout>
-      <div className="p-4 md:pl-72 md:p-8 max-w-4xl min-h-screen">
+      <div className="w-full min-h-screen">
+        <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-6">
         {/* Header with Timer */}
         <div className="mb-6 space-y-4 animate-slide-up">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Active Workout</h1>
-              <p className="text-muted-foreground">Track your sets and reps</p>
-            </div>
+          <PageHeader 
+            title="Active Workout" 
+            subtitle="Track your sets and reps"
+          >
             <Button variant="ghost" onClick={() => navigate('/dashboard')}>
               <X className="h-5 w-5" />
             </Button>
-          </div>
+          </PageHeader>
 
           {/* Timer Card */}
           <Card className="card-elevated">
@@ -295,6 +370,30 @@ const Workout = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Rest Timer Card */}
+          {restTimerActive && (
+            <Card className="card-elevated bg-accent/10 border-accent">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-accent" />
+                    <div>
+                      <p className="text-2xl font-bold font-mono text-accent">{formatTime(restSecondsRemaining)}</p>
+                      <p className="text-xs text-muted-foreground">Rest Time Remaining</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRestTimerActive(false)}
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Exercises */}
@@ -344,11 +443,71 @@ const Workout = () => {
                           </div>
                         )}
                       </div>
-                      {set.rpe !== undefined && (
-                        <div className="ml-11 text-xs text-muted-foreground">
-                          RPE: {set.rpe}/10
-                        </div>
-                      )}
+                      
+                      {/* Set Type Badges and RPE */}
+                      <div className="ml-11 flex flex-wrap gap-2 items-center">
+                        {/* Set Type Toggles */}
+                        {!set.completed && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant={set.isWarmup ? "default" : "outline"}
+                              size="sm"
+                              className="h-6 text-xs px-2"
+                              onClick={() => toggleSetType(exercise.id, idx, 'warmup')}
+                            >
+                              Warmup
+                            </Button>
+                            <Button
+                              variant={set.isDropset ? "default" : "outline"}
+                              size="sm"
+                              className="h-6 text-xs px-2"
+                              onClick={() => toggleSetType(exercise.id, idx, 'dropset')}
+                            >
+                              Dropset
+                            </Button>
+                            <Button
+                              variant={set.isFailure ? "default" : "outline"}
+                              size="sm"
+                              className="h-6 text-xs px-2"
+                              onClick={() => toggleSetType(exercise.id, idx, 'failure')}
+                            >
+                              Failure
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {/* Display badges for completed sets */}
+                        {set.completed && (
+                          <>
+                            {set.isWarmup && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
+                                Warmup
+                              </span>
+                            )}
+                            {set.isDropset && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400">
+                                Dropset
+                              </span>
+                            )}
+                            {set.isFailure && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                                Failure
+                              </span>
+                            )}
+                          </>
+                        )}
+                        
+                        {/* RPE Display */}
+                        {set.rpe !== undefined && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            set.rpe <= 4 ? 'bg-green-500/20 text-green-400' :
+                            set.rpe <= 7 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>
+                            RPE: {set.rpe}/10
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                   <Button
@@ -448,6 +607,7 @@ const Workout = () => {
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
+        </div>
       </div>
     </Layout>
   );

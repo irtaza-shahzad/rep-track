@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Dumbbell, Heart, TrendingUp, Plus, Play, Edit2, Trash2 } from 'lucide-react';
+import { Search, Dumbbell, Plus, Play, Edit2, Trash2, Heart, Zap, Bike } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,13 +8,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
+import PageHeader from '@/components/PageHeader';
 
 interface Exercise {
   id: string;
   name: string;
   category: string;
+  muscleGroup: string;
+  difficulty: string;
   icon: any;
+  isSystem?: boolean;
 }
 
 interface WorkoutTemplate {
@@ -22,48 +27,199 @@ interface WorkoutTemplate {
   name: string;
   exercises: string[];
   duration: string;
+  restTime?: number; // in seconds
+  notes?: string;
 }
 
 const ExerciseLibrary = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseCategory, setNewExerciseCategory] = useState('');
+  const [newExerciseMuscleGroup, setNewExerciseMuscleGroup] = useState('');
+  const [newExerciseDifficulty, setNewExerciseDifficulty] = useState('');
   const [newTemplateName, setNewTemplateName] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const { toast } = useToast();
+  
+  // Filter states
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>('all');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
+  const [showSystemOnly, setShowSystemOnly] = useState<boolean>(false);
+  const [showCustomOnly, setShowCustomOnly] = useState<boolean>(false);
 
   const [exercises, setExercises] = useState<Exercise[]>([
-    { id: '1', name: 'Bench Press', category: 'Chest', icon: Dumbbell },
-    { id: '2', name: 'Squat', category: 'Legs', icon: TrendingUp },
-    { id: '3', name: 'Deadlift', category: 'Back', icon: TrendingUp },
-    { id: '4', name: 'Overhead Press', category: 'Shoulders', icon: Dumbbell },
-    { id: '5', name: 'Pull-ups', category: 'Back', icon: Heart },
-    { id: '6', name: 'Rows', category: 'Back', icon: Dumbbell },
-    { id: '7', name: 'Bicep Curls', category: 'Arms', icon: Dumbbell },
-    { id: '8', name: 'Tricep Extensions', category: 'Arms', icon: Dumbbell },
-    { id: '9', name: 'Leg Press', category: 'Legs', icon: TrendingUp },
-    { id: '10', name: 'Lunges', category: 'Legs', icon: TrendingUp },
-    { id: '11', name: 'Lat Pulldown', category: 'Back', icon: Heart },
-    { id: '12', name: 'Chest Fly', category: 'Chest', icon: Dumbbell },
+    // Chest
+    { id: '1', name: 'Barbell Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '2', name: 'Incline Barbell Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '3', name: 'Flat Dumbbell Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '4', name: 'Incline Dumbbell Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '5', name: 'Decline Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '6', name: 'Chest Dips', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Advanced', icon: Dumbbell, isSystem: true },
+    { id: '7', name: 'Cable Fly', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '8', name: 'Incline Cable Fly', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '9', name: 'Pec Deck Machine', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '10', name: 'Push-Ups', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    
+    // Back
+    { id: '11', name: 'Deadlift', category: 'Strength', muscleGroup: 'Back', difficulty: 'Advanced', icon: Dumbbell, isSystem: true },
+    { id: '12', name: 'Pull-Ups', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '13', name: 'Chin-Ups', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '14', name: 'Lat Pulldown', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '15', name: 'Barbell Bent-Over Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '16', name: 'T-Bar Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '17', name: 'Seated Cable Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '18', name: 'Single-Arm Dumbbell Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '19', name: 'Chest-Supported Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '20', name: 'Face Pulls', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    
+    // Legs
+    { id: '21', name: 'Barbell Back Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '22', name: 'Barbell Front Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Advanced', icon: Dumbbell, isSystem: true },
+    { id: '23', name: 'Leg Press', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '24', name: 'Romanian Deadlift', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '25', name: 'Conventional Deadlift', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Advanced', icon: Dumbbell, isSystem: true },
+    { id: '26', name: 'Bulgarian Split Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '27', name: 'Walking Lunges', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '28', name: 'Leg Extensions', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '29', name: 'Hamstring Curls', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '30', name: 'Hip Thrusts', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '31', name: 'Glute Bridges', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '32', name: 'Calf Raises', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    
+    // Shoulders
+    { id: '33', name: 'Overhead Barbell Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '34', name: 'Dumbbell Shoulder Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '35', name: 'Arnold Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '36', name: 'Lateral Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '37', name: 'Cable Lateral Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '38', name: 'Front Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '39', name: 'Rear Delt Fly', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '40', name: 'Face Pulls', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    
+    // Arms
+    { id: '41', name: 'Barbell Bicep Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '42', name: 'Dumbbell Hammer Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '43', name: 'Preacher Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '44', name: 'Tricep Pushdowns', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '45', name: 'Skull Crushers', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '46', name: 'Overhead Dumbbell Tricep Extension', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    
+    // Core
+    { id: '47', name: 'Planks', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '48', name: 'Hanging Leg Raises', category: 'Strength', muscleGroup: 'Core', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '49', name: 'Ab Wheel Rollouts', category: 'Strength', muscleGroup: 'Core', difficulty: 'Advanced', icon: Dumbbell, isSystem: true },
+    { id: '50', name: 'Cable Woodchoppers', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    
+    // Cardio
+    { id: '51', name: 'Running', category: 'Cardio', muscleGroup: 'FullBody', difficulty: 'Beginner', icon: Heart, isSystem: true },
+    { id: '52', name: 'Cycling', category: 'Cardio', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Heart, isSystem: true },
+    { id: '53', name: 'Jump Rope', category: 'Cardio', muscleGroup: 'FullBody', difficulty: 'Intermediate', icon: Heart, isSystem: true },
+    { id: '54', name: 'Rowing Machine', category: 'Cardio', muscleGroup: 'FullBody', difficulty: 'Intermediate', icon: Heart, isSystem: true },
+    { id: '55', name: 'Stair Climber', category: 'Cardio', muscleGroup: 'Legs', difficulty: 'Intermediate', icon: Heart, isSystem: true },
+    { id: '56', name: 'Elliptical', category: 'Cardio', muscleGroup: 'FullBody', difficulty: 'Beginner', icon: Heart, isSystem: true },
+    { id: '57', name: 'Swimming', category: 'Cardio', muscleGroup: 'FullBody', difficulty: 'Intermediate', icon: Heart, isSystem: true },
+    { id: '58', name: 'Burpees', category: 'Cardio', muscleGroup: 'FullBody', difficulty: 'Advanced', icon: Heart, isSystem: true },
+    { id: '59', name: 'Mountain Climbers', category: 'Cardio', muscleGroup: 'Core', difficulty: 'Intermediate', icon: Heart, isSystem: true },
+    { id: '60', name: 'High Knees', category: 'Cardio', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Heart, isSystem: true },
+    
+    // Flexibility
+    { id: '61', name: 'Hamstring Stretch', category: 'Flexibility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '62', name: 'Quad Stretch', category: 'Flexibility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '63', name: 'Hip Flexor Stretch', category: 'Flexibility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '64', name: 'Shoulder Stretch', category: 'Flexibility', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '65', name: 'Chest Stretch', category: 'Flexibility', muscleGroup: 'Chest', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '66', name: 'Tricep Stretch', category: 'Flexibility', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '67', name: 'Cat-Cow Stretch', category: 'Flexibility', muscleGroup: 'Back', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '68', name: 'Seated Spinal Twist', category: 'Flexibility', muscleGroup: 'Core', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '69', name: "Child's Pose", category: 'Flexibility', muscleGroup: 'Back', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    { id: '70', name: 'Butterfly Stretch', category: 'Flexibility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Zap, isSystem: true },
+    
+    // Mobility
+    { id: '71', name: 'Arm Circles', category: 'Mobility', muscleGroup: 'Shoulders', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '72', name: 'Leg Swings', category: 'Mobility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '73', name: 'Hip Circles', category: 'Mobility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '74', name: 'Ankle Rolls', category: 'Mobility', muscleGroup: 'Legs', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '75', name: 'Neck Rolls', category: 'Mobility', muscleGroup: 'Other', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '76', name: 'Wrist Circles', category: 'Mobility', muscleGroup: 'Arms', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '77', name: 'Torso Twists', category: 'Mobility', muscleGroup: 'Core', difficulty: 'Beginner', icon: Bike, isSystem: true },
+    { id: '78', name: 'Walking Lunges', category: 'Mobility', muscleGroup: 'Legs', difficulty: 'Intermediate', icon: Bike, isSystem: true },
+    { id: '79', name: 'Inchworms', category: 'Mobility', muscleGroup: 'FullBody', difficulty: 'Intermediate', icon: Bike, isSystem: true },
+    { id: '80', name: 'World Greatest Stretch', category: 'Mobility', muscleGroup: 'FullBody', difficulty: 'Intermediate', icon: Bike, isSystem: true },
+    
+    // Other
+    { id: '81', name: 'Yoga Flow', category: 'Other', muscleGroup: 'FullBody', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '82', name: 'Pilates Core Work', category: 'Other', muscleGroup: 'Core', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
+    { id: '83', name: 'Foam Rolling', category: 'Other', muscleGroup: 'FullBody', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '84', name: 'Deep Breathing Exercises', category: 'Other', muscleGroup: 'Other', difficulty: 'Beginner', icon: Dumbbell, isSystem: true },
+    { id: '85', name: 'Balance Training', category: 'Other', muscleGroup: 'FullBody', difficulty: 'Intermediate', icon: Dumbbell, isSystem: true },
   ]);
 
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([
-    { id: '1', name: 'Push Day', exercises: ['Bench Press', 'Overhead Press', 'Tricep Extensions'], duration: '45 min' },
-    { id: '2', name: 'Pull Day', exercises: ['Deadlift', 'Pull-ups', 'Rows', 'Bicep Curls'], duration: '60 min' },
-    { id: '3', name: 'Leg Day', exercises: ['Squat', 'Leg Press', 'Lunges'], duration: '50 min' },
+    { 
+      id: '1', 
+      name: 'Push Day', 
+      exercises: ['Bench Press', 'Overhead Press', 'Tricep Extensions'], 
+      duration: '45 min',
+      restTime: 120,
+      notes: 'Focus on compound movements with progressive overload'
+    },
+    { 
+      id: '2', 
+      name: 'Pull Day', 
+      exercises: ['Deadlift', 'Pull-ups', 'Rows', 'Bicep Curls'], 
+      duration: '60 min',
+      restTime: 180,
+      notes: 'Start with deadlifts when fresh, maintain proper form'
+    },
+    { 
+      id: '3', 
+      name: 'Leg Day', 
+      exercises: ['Squat', 'Leg Press', 'Lunges'], 
+      duration: '50 min',
+      restTime: 150,
+      notes: 'High volume leg training - stay hydrated'
+    },
   ]);
 
-  const categories = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Cardio'];
+  const categories = ['Strength', 'Cardio', 'Flexibility', 'Mobility', 'Other'];
+  const muscleGroups = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'FullBody'];
+  const difficulties = ['Beginner', 'Intermediate', 'Advanced'];
 
-  const filteredExercises = exercises.filter(ex =>
-    ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ex.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Helper function to get icon based on category
+  const getCategoryIcon = (category: string) => {
+    switch(category) {
+      case 'Strength':
+        return Dumbbell;
+      case 'Cardio':
+        return Heart;
+      case 'Flexibility':
+        return Zap;
+      case 'Mobility':
+        return Bike;
+      default:
+        return Dumbbell;
+    }
+  };
+
+  const filteredExercises = exercises.filter(ex => {
+    const matchesSearch = ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ex.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || ex.category === selectedCategory;
+    const matchesMuscleGroup = selectedMuscleGroup === 'all' || ex.muscleGroup === selectedMuscleGroup;
+    const matchesDifficulty = selectedDifficulty === 'all' || ex.difficulty === selectedDifficulty;
+    const matchesType = (!showSystemOnly && !showCustomOnly) || 
+      (showSystemOnly && ex.isSystem) || 
+      (showCustomOnly && !ex.isSystem);
+    
+    return matchesSearch && matchesCategory && matchesMuscleGroup && matchesDifficulty && matchesType;
+  });
 
   const handleAddExercise = () => {
-    if (!newExerciseName.trim() || !newExerciseCategory) {
+    if (!newExerciseName.trim() || !newExerciseCategory || !newExerciseMuscleGroup || !newExerciseDifficulty) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -76,12 +232,16 @@ const ExerciseLibrary = () => {
       id: Date.now().toString(),
       name: newExerciseName,
       category: newExerciseCategory,
-      icon: Dumbbell,
+      muscleGroup: newExerciseMuscleGroup,
+      difficulty: newExerciseDifficulty,
+      icon: getCategoryIcon(newExerciseCategory),
     };
 
     setExercises([...exercises, newExercise]);
     setNewExerciseName('');
     setNewExerciseCategory('');
+    setNewExerciseMuscleGroup('');
+    setNewExerciseDifficulty('');
     setIsAddExerciseOpen(false);
     
     toast({
@@ -115,7 +275,9 @@ const ExerciseLibrary = () => {
       duration: `${selectedExercises.length * 15} min`,
     };
 
-    setTemplates([...templates, newTemplate]);
+    const updatedTemplates = [...templates, newTemplate];
+    setTemplates(updatedTemplates);
+    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
     setNewTemplateName('');
     setSelectedExercises([]);
     setIsAddTemplateOpen(false);
@@ -126,15 +288,14 @@ const ExerciseLibrary = () => {
     });
   };
 
-  const handleStartWorkout = (templateName: string) => {
-    toast({
-      title: "Starting Workout",
-      description: `${templateName} workout started`,
-    });
+  const handleStartWorkout = (template: WorkoutTemplate) => {
+    navigate('/workout', { state: { template } });
   };
 
   const handleDeleteTemplate = (id: string, name: string) => {
-    setTemplates(templates.filter(t => t.id !== id));
+    const updatedTemplates = templates.filter(t => t.id !== id);
+    setTemplates(updatedTemplates);
+    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
     toast({
       title: "Template Deleted",
       description: `${name} has been removed`,
@@ -151,12 +312,12 @@ const ExerciseLibrary = () => {
 
   return (
     <Layout>
-      <div className="p-4 md:pl-72 md:p-8 max-w-6xl">
-        {/* Header */}
-        <div className="mb-6 animate-slide-up">
-          <h1 className="text-3xl font-bold mb-2">Exercises</h1>
-          <p className="text-muted-foreground">Manage exercises and workout templates</p>
-        </div>
+      <div className="w-full min-h-screen">
+        <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+        <PageHeader 
+          title="Exercises" 
+          subtitle="Manage exercises and workout templates"
+        />
 
         <Tabs defaultValue="exercises" className="animate-slide-up">
           <TabsList className="mb-6 w-full grid grid-cols-2">
@@ -165,7 +326,71 @@ const ExerciseLibrary = () => {
           </TabsList>
 
           {/* Exercises Tab */}
-          <TabsContent value="exercises">
+          <TabsContent value="exercises" className="space-y-6">
+            {/* Filters */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedMuscleGroup} onValueChange={setSelectedMuscleGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Muscle Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Muscles</SelectItem>
+                    {muscleGroups.map((muscle) => (
+                      <SelectItem key={muscle} value={muscle}>{muscle}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    {difficulties.map((diff) => (
+                      <SelectItem key={diff} value={diff}>{diff}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex gap-2">
+                  <Button 
+                    variant={showSystemOnly ? "default" : "outline"} 
+                    onClick={() => {
+                      setShowSystemOnly(!showSystemOnly);
+                      setShowCustomOnly(false);
+                    }}
+                    className="flex-1"
+                  >
+                    System
+                  </Button>
+                  <Button 
+                    variant={showCustomOnly ? "default" : "outline"} 
+                    onClick={() => {
+                      setShowCustomOnly(!showCustomOnly);
+                      setShowSystemOnly(false);
+                    }}
+                    className="flex-1"
+                  >
+                    Custom
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             {/* Search and Add */}
             <div className="flex gap-3 mb-6">
               <div className="flex-1 relative">
@@ -212,6 +437,32 @@ const ExerciseLibrary = () => {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="muscle-group">Muscle Group</Label>
+                      <Select value={newExerciseMuscleGroup} onValueChange={setNewExerciseMuscleGroup}>
+                        <SelectTrigger id="muscle-group">
+                          <SelectValue placeholder="Select muscle group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {muscleGroups.map((muscle) => (
+                            <SelectItem key={muscle} value={muscle}>{muscle}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="difficulty">Difficulty</Label>
+                      <Select value={newExerciseDifficulty} onValueChange={setNewExerciseDifficulty}>
+                        <SelectTrigger id="difficulty">
+                          <SelectValue placeholder="Select difficulty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {difficulties.map((diff) => (
+                            <SelectItem key={diff} value={diff}>{diff}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <Button onClick={handleAddExercise} className="w-full">
                       Add Exercise
                     </Button>
@@ -221,7 +472,7 @@ const ExerciseLibrary = () => {
             </div>
 
             {/* Exercise Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {filteredExercises.map((exercise) => {
                 const Icon = exercise.icon;
                 return (
@@ -236,14 +487,33 @@ const ExerciseLibrary = () => {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold mb-1">{exercise.name}</h3>
-                          <p className="text-sm text-muted-foreground">{exercise.category}</p>
+                          <p className="text-sm text-muted-foreground mb-2">{exercise.category}</p>
+                          <div className="flex gap-2 flex-wrap">
+                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                              {exercise.muscleGroup}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              exercise.difficulty === 'Beginner' ? 'bg-green-500/10 text-green-600' :
+                              exercise.difficulty === 'Intermediate' ? 'bg-yellow-500/10 text-yellow-600' :
+                              'bg-red-500/10 text-red-600'
+                            }`}>
+                              {exercise.difficulty}
+                            </span>
+                            {exercise.isSystem && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                System
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteExercise(exercise.id, exercise.name)}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {!exercise.isSystem && (
+                          <button
+                            onClick={() => handleDeleteExercise(exercise.id, exercise.name)}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -313,14 +583,26 @@ const ExerciseLibrary = () => {
             </div>
 
             {/* Templates Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               {templates.map((template) => (
                 <Card key={template.id} className="card-elevated">
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1">
                         <CardTitle className="text-xl mb-1">{template.name}</CardTitle>
-                        <p className="text-sm text-muted-foreground">{template.duration}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                            {template.duration}
+                          </span>
+                          {template.restTime && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-accent/10 text-accent">
+                              Rest: {template.restTime}s
+                            </span>
+                          )}
+                          <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                            {template.exercises.length} exercises
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => handleDeleteTemplate(template.id, template.name)}
@@ -332,21 +614,41 @@ const ExerciseLibrary = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
+                      {/* Notes */}
+                      {template.notes && (
+                        <div className="p-3 rounded-lg bg-muted/50">
+                          <p className="text-sm text-muted-foreground italic">{template.notes}</p>
+                        </div>
+                      )}
+                      
+                      {/* Exercises List */}
                       <div className="space-y-1">
                         {template.exercises.map((ex, idx) => (
-                          <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                          <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2 p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                            <span className="text-xs font-medium text-primary">{idx + 1}</span>
                             <Dumbbell className="h-3 w-3" />
                             {ex}
                           </div>
                         ))}
                       </div>
-                      <Button
-                        onClick={() => handleStartWorkout(template.name)}
-                        className="w-full rounded-xl"
-                      >
-                        <Play className="h-4 w-4 mr-2" />
-                        Start Workout
-                      </Button>
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleStartWorkout(template)}
+                          className="flex-1 rounded-xl"
+                        >
+                          <Play className="h-4 w-4 mr-2" />
+                          Start Workout
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="rounded-xl"
+                          title="Edit template (reorder exercises)"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -360,6 +662,7 @@ const ExerciseLibrary = () => {
             )}
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </Layout>
   );
