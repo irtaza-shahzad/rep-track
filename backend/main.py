@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.core.database import Base, engine
-from app.api.routers import user_router, auth_router, exercise_router, template_router, streak_router
+from app.api.routers import user_router, auth_router, exercise_router, template_router, streak_router, reminder_router
 from app.core.open_api import custom_openapi 
 
 Base.metadata.create_all(bind=engine)
@@ -13,3 +13,4 @@ app.include_router(exercise_router.router)
 app.include_router(user_router.router)
 app.include_router(template_router.router)
 app.include_router(streak_router.router)
+app.include_router(reminder_router.router)
