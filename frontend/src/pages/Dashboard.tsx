@@ -9,6 +9,8 @@ import { StartWorkoutDialog } from '@/components/StartWorkoutDialog';
 import { TemplatePickerDialog } from '@/components/TemplatePickerDialog';
 import { getWorkoutHistory, SavedWorkout, formatWorkoutDate, seedMockWorkouts } from '@/lib/workoutStorage';
 import PageHeader from '@/components/PageHeader';
+import { useWorkout } from '@/contexts/WorkoutContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface WorkoutTemplate {
   id: string;
@@ -20,6 +22,8 @@ interface WorkoutTemplate {
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
+  const { activeWorkout, hasActiveWorkout } = useWorkout();
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
@@ -90,6 +94,15 @@ const Dashboard = () => {
   };
 
   const handleStartWorkout = () => {
+    // Check if there's already an active workout
+    if (hasActiveWorkout()) {
+      toast({
+        title: "Workout Already Active",
+        description: "You have an active workout in progress. Please finish it first or click the indicator at the top to resume.",
+        variant: "destructive"
+      });
+      return;
+    }
     setShowStartDialog(true);
   };
 

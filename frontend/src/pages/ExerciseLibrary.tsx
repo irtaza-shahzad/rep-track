@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Dumbbell, Plus, Play, Edit2, Trash2, Heart, Zap, Bike } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,10 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
+import ExerciseSelector from '@/components/ExerciseSelector';
+import { useWorkout } from '@/contexts/WorkoutContext';
 
 interface Exercise {
   id: string;
@@ -33,16 +36,22 @@ interface WorkoutTemplate {
 
 const ExerciseLibrary = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { hasActiveWorkout } = useWorkout();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
+  const [isEditTemplateOpen, setIsEditTemplateOpen] = useState(false);
+  const [isViewTemplateOpen, setIsViewTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
+  const [viewingTemplate, setViewingTemplate] = useState<WorkoutTemplate | null>(null);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseCategory, setNewExerciseCategory] = useState('');
   const [newExerciseMuscleGroup, setNewExerciseMuscleGroup] = useState('');
   const [newExerciseDifficulty, setNewExerciseDifficulty] = useState('');
   const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateDescription, setNewTemplateDescription] = useState('');
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
-  const { toast } = useToast();
   
   // Filter states
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -162,7 +171,7 @@ const ExerciseLibrary = () => {
     { 
       id: '1', 
       name: 'Push Day', 
-      exercises: ['Bench Press', 'Overhead Press', 'Tricep Extensions'], 
+      exercises: ['Barbell Bench Press', 'Overhead Press', 'Tricep Extensions'], 
       duration: '45 min',
       restTime: 120,
       notes: 'Focus on compound movements with progressive overload'
@@ -170,7 +179,7 @@ const ExerciseLibrary = () => {
     { 
       id: '2', 
       name: 'Pull Day', 
-      exercises: ['Deadlift', 'Pull-ups', 'Rows', 'Bicep Curls'], 
+      exercises: ['Deadlift', 'Pull-Ups', 'Barbell Bent-Over Row', 'Barbell Bicep Curls'], 
       duration: '60 min',
       restTime: 180,
       notes: 'Start with deadlifts when fresh, maintain proper form'
@@ -178,7 +187,7 @@ const ExerciseLibrary = () => {
     { 
       id: '3', 
       name: 'Leg Day', 
-      exercises: ['Squat', 'Leg Press', 'Lunges'], 
+      exercises: ['Barbell Back Squat', 'Leg Press', 'Walking Lunges'], 
       duration: '50 min',
       restTime: 150,
       notes: 'High volume leg training - stay hydrated'
@@ -273,12 +282,14 @@ const ExerciseLibrary = () => {
       name: newTemplateName,
       exercises: selectedExercises,
       duration: `${selectedExercises.length * 15} min`,
+      notes: newTemplateDescription || undefined,
     };
 
     const updatedTemplates = [...templates, newTemplate];
     setTemplates(updatedTemplates);
     localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
     setNewTemplateName('');
+    setNewTemplateDescription('');
     setSelectedExercises([]);
     setIsAddTemplateOpen(false);
     
@@ -289,7 +300,66 @@ const ExerciseLibrary = () => {
   };
 
   const handleStartWorkout = (template: WorkoutTemplate) => {
+    // Check if there's already an active workout
+    if (hasActiveWorkout()) {
+      toast({
+        title: "Workout Already Active",
+        description: "You have an active workout in progress. Please finish it first or click the indicator at the top to resume.",
+        variant: "destructive"
+      });
+      return;
+    }
     navigate('/workout', { state: { template } });
+  };
+
+  const handleEditTemplate = (template: WorkoutTemplate) => {
+    setEditingTemplate(template);
+    setNewTemplateName(template.name);
+    setNewTemplateDescription(template.notes || '');
+    // Create a completely fresh copy of exercises array
+    setSelectedExercises([...template.exercises]);
+    setIsEditTemplateOpen(true);
+  };
+
+  const handleViewTemplate = (template: WorkoutTemplate) => {
+    setViewingTemplate(template);
+    setIsViewTemplateOpen(true);
+  };
+
+  const handleUpdateTemplate = () => {
+    if (!editingTemplate || !newTemplateName.trim() || selectedExercises.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please provide a name and select at least one exercise",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedTemplate: WorkoutTemplate = {
+      ...editingTemplate,
+      name: newTemplateName,
+      exercises: [...selectedExercises],
+      duration: `${selectedExercises.length * 15} min`,
+      notes: newTemplateDescription || undefined,
+    };
+
+    const updatedTemplates = templates.map(t => 
+      t.id === editingTemplate.id ? updatedTemplate : t
+    );
+    
+    setTemplates(updatedTemplates);
+    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
+    setNewTemplateName('');
+    setNewTemplateDescription('');
+    setSelectedExercises([]);
+    setEditingTemplate(null);
+    setIsEditTemplateOpen(false);
+    
+    toast({
+      title: "Template Updated",
+      description: `${newTemplateName} has been updated`,
+    });
   };
 
   const handleDeleteTemplate = (id: string, name: string) => {
@@ -303,11 +373,13 @@ const ExerciseLibrary = () => {
   };
 
   const toggleExerciseSelection = (exerciseName: string) => {
-    if (selectedExercises.includes(exerciseName)) {
-      setSelectedExercises(selectedExercises.filter(e => e !== exerciseName));
-    } else {
-      setSelectedExercises([...selectedExercises, exerciseName]);
-    }
+    setSelectedExercises(prev => {
+      if (prev.includes(exerciseName)) {
+        return prev.filter(e => e !== exerciseName);
+      } else {
+        return [...prev, exerciseName];
+      }
+    });
   };
 
   return (
@@ -531,18 +603,26 @@ const ExerciseLibrary = () => {
           {/* Templates Tab */}
           <TabsContent value="templates">
             <div className="mb-6 flex justify-end">
-              <Dialog open={isAddTemplateOpen} onOpenChange={setIsAddTemplateOpen}>
+              <Dialog open={isAddTemplateOpen} onOpenChange={(open) => {
+                setIsAddTemplateOpen(open);
+                if (!open) {
+                  // Reset state when closing
+                  setSelectedExercises([]);
+                  setNewTemplateName('');
+                  setNewTemplateDescription('');
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button className="rounded-xl">
                     <Plus className="h-5 w-5 mr-2" />
                     Create Template
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
                   <DialogHeader>
                     <DialogTitle>Create Workout Template</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 py-4 overflow-y-auto flex-1">
                     <div className="space-y-2">
                       <Label htmlFor="template-name">Template Name</Label>
                       <Input
@@ -553,26 +633,24 @@ const ExerciseLibrary = () => {
                       />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="template-description">Description (Optional)</Label>
+                      <Input
+                        id="template-description"
+                        placeholder="e.g., Focus on compound movements"
+                        value={newTemplateDescription}
+                        onChange={(e) => setNewTemplateDescription(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
                       <Label>Select Exercises</Label>
-                      <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3">
-                        {exercises.map((exercise) => (
-                          <label
-                            key={exercise.id}
-                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedExercises.includes(exercise.name)}
-                              onChange={() => toggleExerciseSelection(exercise.name)}
-                              className="h-4 w-4 accent-primary"
-                            />
-                            <span className="text-sm">{exercise.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {selectedExercises.length} exercise(s) selected
-                      </p>
+                      <ExerciseSelector
+                        key="create-template"
+                        exercises={exercises}
+                        selectedExercises={selectedExercises}
+                        onSelect={toggleExerciseSelection}
+                        multiSelect={true}
+                        showSelectedCount={true}
+                      />
                     </div>
                     <Button onClick={handleAddTemplate} className="w-full">
                       Create Template
@@ -582,10 +660,127 @@ const ExerciseLibrary = () => {
               </Dialog>
             </div>
 
+            {/* Edit Template Dialog */}
+            <Dialog open={isEditTemplateOpen} onOpenChange={(open) => {
+              setIsEditTemplateOpen(open);
+              if (!open) {
+                // Reset state when closing
+                setSelectedExercises([]);
+                setEditingTemplate(null);
+                setNewTemplateName('');
+                setNewTemplateDescription('');
+              }}
+            }>
+              <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                  <DialogTitle>Edit Template</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4 overflow-y-auto flex-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-template-name">Template Name</Label>
+                    <Input
+                      id="edit-template-name"
+                      placeholder="e.g., Upper Body Blast"
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-template-description">Description (Optional)</Label>
+                    <Input
+                      id="edit-template-description"
+                      placeholder="e.g., Focus on compound movements"
+                      value={newTemplateDescription}
+                      onChange={(e) => setNewTemplateDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Select Exercises</Label>
+                    <ExerciseSelector
+                      key={editingTemplate?.id || 'edit'}
+                      exercises={exercises}
+                      selectedExercises={selectedExercises}
+                      onSelect={toggleExerciseSelection}
+                      multiSelect={true}
+                      showSelectedCount={true}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsEditTemplateOpen(false)} className="flex-1">
+                      Cancel
+                    </Button>
+                    <Button onClick={handleUpdateTemplate} className="flex-1">
+                      Update Template
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* View Template Dialog */}
+            <Dialog open={isViewTemplateOpen} onOpenChange={setIsViewTemplateOpen}>
+              <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>View Template</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {viewingTemplate && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Template Name</Label>
+                        <p className="text-base font-medium">{viewingTemplate.name}</p>
+                      </div>
+                      {viewingTemplate.notes && (
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <p className="text-sm text-muted-foreground">{viewingTemplate.notes}</p>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label>Duration</Label>
+                        <p className="text-sm">{viewingTemplate.duration}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Exercises ({viewingTemplate.exercises.length})</Label>
+                        <ScrollArea className="h-[300px] rounded-md border p-4">
+                          <div className="space-y-2">
+                            {viewingTemplate.exercises.map((exerciseName, index) => (
+                              <div key={index} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                                <span className="text-xs font-medium text-muted-foreground w-6">{index + 1}.</span>
+                                <span className="text-sm">{exerciseName}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button variant="outline" onClick={() => setIsViewTemplateOpen(false)} className="flex-1">
+                          Close
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            setIsViewTemplateOpen(false);
+                            handleStartWorkout(viewingTemplate);
+                          }} 
+                          className="flex-1"
+                        >
+                          Start Workout
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
             {/* Templates Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               {templates.map((template) => (
-                <Card key={template.id} className="card-elevated">
+                <Card 
+                  key={template.id} 
+                  className="card-elevated cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => handleViewTemplate(template)}
+                >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -605,7 +800,10 @@ const ExerciseLibrary = () => {
                         </div>
                       </div>
                       <button
-                        onClick={() => handleDeleteTemplate(template.id, template.name)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteTemplate(template.id, template.name);
+                        }}
                         className="text-muted-foreground hover:text-destructive transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -621,20 +819,29 @@ const ExerciseLibrary = () => {
                         </div>
                       )}
                       
-                      {/* Exercises List */}
+                      {/* Exercises List - Show first 3, then "..." */}
                       <div className="space-y-1">
-                        {template.exercises.map((ex, idx) => (
+                        {template.exercises.slice(0, 3).map((ex, idx) => (
                           <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2 p-2 rounded-lg hover:bg-muted/30 transition-colors">
                             <span className="text-xs font-medium text-primary">{idx + 1}</span>
                             <Dumbbell className="h-3 w-3" />
                             {ex}
                           </div>
                         ))}
+                        {template.exercises.length > 3 && (
+                          <div className="text-sm text-muted-foreground flex items-center gap-2 p-2">
+                            <span className="text-xs font-medium text-primary">...</span>
+                            <span className="italic">and {template.exercises.length - 3} more</span>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex gap-2">
                         <Button
-                          onClick={() => handleStartWorkout(template)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartWorkout(template);
+                          }}
                           className="flex-1 rounded-xl"
                         >
                           <Play className="h-4 w-4 mr-2" />
@@ -644,7 +851,11 @@ const ExerciseLibrary = () => {
                           variant="outline"
                           size="icon"
                           className="rounded-xl"
-                          title="Edit template (reorder exercises)"
+                          title="Edit template"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditTemplate(template);
+                          }}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>

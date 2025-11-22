@@ -26,11 +26,11 @@ export const TemplatePickerDialog = ({
 }: TemplatePickerDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Choose Template</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-3 py-4">
+        <div className="grid gap-3 py-4 overflow-y-auto flex-1">
           {templates.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No templates available.</p>
