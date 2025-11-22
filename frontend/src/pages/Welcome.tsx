@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Activity, TrendingUp, Target, BarChart3, Clock, Trophy, Zap, Award, Users } from 'lucide-react';
+import { Activity, TrendingUp, Target, BarChart3, Dumbbell } from 'lucide-react';
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ const Welcome = () => {
     // Show animation
     const timer = setTimeout(() => {
       setShowContent(true);
-    }, 500);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, []);
@@ -25,165 +25,134 @@ const Welcome = () => {
     { 
       icon: Target, 
       title: 'Custom Templates', 
-      description: 'Create personalized workout routines tailored to your goals',
-      color: 'from-blue-500 to-cyan-500' 
+      description: 'Build personalized routines'
     },
     { 
       icon: Activity, 
       title: 'Live Tracking', 
-      description: 'Log your reps, sets, and weights in real-time during workouts',
-      color: 'from-green-500 to-emerald-500' 
+      description: 'Log reps & sets in real-time'
     },
     { 
       icon: BarChart3, 
-      title: 'Analytics Dashboard', 
-      description: 'Visualize your progress with detailed charts and statistics',
-      color: 'from-purple-500 to-pink-500' 
+      title: 'Analytics', 
+      description: 'Visualize your progress'
     },
     { 
       icon: TrendingUp, 
       title: 'Progress Tracking', 
-      description: 'Monitor your strength gains and personal records over time',
-      color: 'from-orange-500 to-red-500' 
+      description: 'Monitor your strength gains'
     },
-    { 
-      icon: Trophy, 
-      title: 'Goal Setting', 
-      description: 'Set and achieve fitness milestones with our goal system',
-      color: 'from-yellow-500 to-orange-500' 
-    },
-    { 
-      icon: Zap, 
-      title: 'Quick Workouts', 
-      description: 'Start empty sessions or load from templates instantly',
-      color: 'from-indigo-500 to-purple-500' 
-    },
-  ];
-
-  const stats = [
-    { number: '10K+', label: 'Active Users' },
-    { number: '500K+', label: 'Workouts Logged' },
-    { number: '50M+', label: 'Reps Tracked' },
   ];
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {/* Mesh Gradient Background */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDEwMCwxMDAsMTAwLDAuMDMpIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-40"></div>
+    <div className="min-h-screen relative overflow-hidden bg-background">
+      {/* Subtle Grid Pattern */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       
       {/* Animated Gradient Orbs */}
-      <div className="absolute top-0 -left-4 w-96 h-96 bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
-      <div className="absolute top-0 -right-4 w-96 h-96 bg-gradient-to-br from-accent/20 to-pink-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-8 left-20 w-96 h-96 bg-gradient-to-br from-primary/20 to-blue-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob"></div>
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-accent/10 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000"></div>
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary/5 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000"></div>
 
-      <div className={`relative z-10 transition-all duration-1000 ${showContent ? 'opacity-100' : 'opacity-0'}`}>
-        {/* Hero Section - Split Layout */}
-        <div className="container mx-auto px-6 lg:px-12 py-16 lg:py-24">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <div className={`relative z-10 transition-all duration-700 ${showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        {/* Hero Section */}
+        <div className="container mx-auto px-4 sm:px-6 lg:px-12 py-6 sm:py-8 lg:py-0 lg:min-h-screen lg:flex lg:items-center">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-16 lg:items-center w-full">
             
             {/* Left Side - Content */}
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8 lg:space-y-10 text-center lg:text-left">
               {/* Logo & Brand */}
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-purple-600 rounded-2xl blur-xl opacity-60 animate-pulse"></div>
-                  <div className="relative h-16 w-16 rounded-2xl bg-gradient-to-br from-primary via-purple-600 to-pink-600 flex items-center justify-center shadow-2xl">
-                    <Activity className="h-8 w-8 text-white" strokeWidth={2.5} />
+              <div className="flex flex-col lg:flex-row items-center lg:items-start space-y-3 lg:space-y-0 lg:space-x-4 animate-scale-in">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-3xl blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-500"></div>
+                  <div className="relative h-16 w-16 sm:h-20 sm:w-20 rounded-3xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-2xl sage-glow">
+                    <Dumbbell className="h-8 w-8 sm:h-10 sm:w-10 text-white" strokeWidth={2.5} />
                   </div>
                 </div>
-                <div>
-                  <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-600 to-pink-600">
-                    RepTrack
+                <div className="space-y-1">
+                  <h1 className="text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] animate-gradient">
+                    FitTrack
                   </h1>
-                  <p className="text-sm text-muted-foreground">Fitness Tracking Platform</p>
+                  <p className="text-sm text-muted-foreground font-medium">Your Workout Companion</p>
                 </div>
               </div>
 
               {/* Main Headline */}
-              <div className="space-y-4">
-                <h2 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
-                  Track Every Rep,
-                  <span className="block bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-600 to-pink-600">
-                    Master Every Goal
+              <div className="space-y-3 sm:space-y-4 animate-fade-in-up animation-delay-200">
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-foreground">
+                  Track Every Rep.
+                  <span className="block mt-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+                    Master Every Goal.
                   </span>
                 </h2>
-                <p className="text-lg lg:text-xl text-foreground leading-relaxed max-w-xl">
-                  The ultimate workout tracking platform for serious athletes. Build custom templates, 
-                  track live sessions, and analyze your performance with powerful analytics.
+                <p className="text-sm sm:text-base lg:text-lg text-muted-foreground leading-relaxed">
+                  A comprehensive workout tracking platform designed to help you achieve your fitness goals. 
+                  Create custom workout templates, log exercises in real-time, and analyze your progress with 
+                  detailed performance metrics. Everything you need to stay consistent and reach new personal records.
                 </p>
               </div>
 
               {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-row gap-3 justify-center lg:justify-start items-center animate-fade-in-up animation-delay-400">
                 <Button 
                   onClick={() => handleGetStarted(true)}
                   size="lg"
-                  className="h-14 px-8 text-lg bg-gradient-to-r from-primary via-purple-600 to-pink-600 hover:opacity-90 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                  className="h-11 px-6 text-base bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 sage-glow"
                 >
-                  Get Started Free
-                  <Zap className="ml-2 h-5 w-5" />
+                  Sign Up
                 </Button>
                 <Button 
                   onClick={() => handleGetStarted(false)}
                   variant="outline"
                   size="lg"
-                  className="h-14 px-8 text-lg border-2 hover:bg-primary/5"
+                  className="h-11 px-6 text-base border-2 border-primary/50 hover:bg-primary/10 hover:border-primary transition-all duration-300"
                 >
-                  Log In
+                  Sign In
                 </Button>
-              </div>
-
-              {/* Stats */}
-              <div className="flex flex-wrap gap-8 pt-4">
-                {stats.map((stat, index) => (
-                  <div key={index} className="space-y-1">
-                    <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
-                      {stat.number}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  </div>
-                ))}
               </div>
             </div>
 
             {/* Right Side - Feature Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 mt-8 lg:mt-0 animate-fade-in-up animation-delay-600">
               {features.map((feature, index) => (
                 <Card 
                   key={index} 
-                  className={`p-6 hover:scale-105 transition-all duration-300 cursor-pointer border-2 hover:border-primary/50 group animate-fade-in`}
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  className="p-3 sm:p-4 hover:scale-105 transition-all duration-300 cursor-pointer border border-border hover:border-primary/50 hover:shadow-xl group bg-card/50 backdrop-blur-sm"
+                  style={{ animationDelay: `${700 + index * 100}ms` }}
                 >
-                  <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-shadow`}>
-                    <feature.icon className="h-6 w-6 text-white" strokeWidth={2.5} />
+                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3">
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:sage-glow">
+                      <feature.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold mb-0.5 text-foreground">{feature.title}</h3>
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {feature.description}
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {feature.description}
-                  </p>
                 </Card>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Social Proof Bar */}
-        <div className="border-t border-border/50 bg-card/30 backdrop-blur-sm">
-          <div className="container mx-auto px-6 lg:px-12 py-8">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center space-x-3 text-muted-foreground">
-                <Users className="h-5 w-5" />
-                <p className="text-sm">Trusted by athletes worldwide</p>
-              </div>
-              <div className="flex items-center space-x-3 text-muted-foreground">
-                <Award className="h-5 w-5" />
-                <p className="text-sm">Track. Analyze. Improve.</p>
-              </div>
-              <div className="flex items-center space-x-3 text-muted-foreground">
-                <Trophy className="h-5 w-5" />
-                <p className="text-sm">Achieve your fitness goals</p>
-              </div>
-            </div>
+        {/* Minimal Footer Tagline - Only on Mobile */}
+        <div className="lg:hidden pb-6 text-center">
+          <p className="text-xs text-muted-foreground">
+            Track. Analyze. Improve.
+          </p>
+        </div>
+
+        {/* Fancy Bottom Text - Desktop Only */}
+        <div className="hidden lg:block fixed bottom-8 left-0 right-0 z-20">
+          <div className="text-center space-y-2 animate-fade-in-up animation-delay-1000">
+            <p className="text-sm font-semibold bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary">
+              Performance Analytics • Custom Workflows • Progress Visualization
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Professional fitness tracking for serious athletes
+            </p>
           </div>
         </div>
       </div>
@@ -209,7 +178,7 @@ const Welcome = () => {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-        @keyframes fade-in {
+        @keyframes fade-in-up {
           from {
             opacity: 0;
             transform: translateY(20px);
@@ -219,8 +188,45 @@ const Welcome = () => {
             transform: translateY(0);
           }
         }
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out forwards;
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+          opacity: 0;
+        }
+        @keyframes scale-in {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        .animate-scale-in {
+          animation: scale-in 0.5s ease-out forwards;
+        }
+        @keyframes gradient {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .animate-gradient {
+          animation: gradient 3s ease infinite;
+        }
+        .animation-delay-200 {
+          animation-delay: 0.2s;
+        }
+        .animation-delay-400 {
+          animation-delay: 0.4s;
+        }
+        .animation-delay-1000 {
+          animation-delay: 1s;
         }
       `}</style>
     </div>
