@@ -158,10 +158,27 @@ const Reminders = () => {
     if (isEditing && selectedReminder) {
       // PUT /reminders/{id}
       console.log('Update reminder:', selectedReminder.id, formData);
+      setReminders(reminders.map(r => 
+        r.id === selectedReminder.id 
+          ? { 
+              ...r, 
+              ...formData,
+              updated_at: new Date().toISOString()
+            } 
+          : r
+      ));
       toast({ title: 'Success', description: 'Reminder updated successfully' });
     } else {
       // POST /reminders
+      const newReminder: Reminder = {
+        id: Math.max(...reminders.map(r => r.id), 0) + 1,
+        user_id: 1,
+        ...formData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
       console.log('Create reminder:', formData);
+      setReminders([...reminders, newReminder]);
       toast({ title: 'Success', description: 'Reminder created successfully' });
     }
 
