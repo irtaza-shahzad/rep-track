@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Neutral dark backgrounds */
+    --background: 0 0% 12%;
+    --foreground: 0 0% 94%;
+
+    --card: 0 0% 18%;
+    --card-foreground: 0 0% 94%;
+
+    --popover: 0 0% 18%;
+    --popover-foreground: 0 0% 94%;
+
+    /* Lighter sage for interactive elements - readable on dark backgrounds */
+    --primary: 100 50% 24%;
+    --primary-foreground: 0 0% 94%;
+
+    /* Dark sage - only for large background sections */
+    --primary-dark: 100 98% 11%;
+
+    --secondary: 0 0% 22%;
+    --secondary-foreground: 0 0% 94%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 40 31% 77%;
+
+    /* Muted mint - for highlights and active states */
+    --accent: 118 29% 61%;
+    --accent-foreground: 0 0% 12%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 94%;
+
+    --border: 0 0% 25%;
+    --input: 0 0% 18%;
+    --ring: 100 98% 11%;
+
+    --radius: 1rem;
+
+    /* Chart colors - using readable colors */
+    --chart-primary: 100 50% 24%;
+    --chart-accent: 118 29% 61%;
+    --chart-gold: 45 90% 65%;
+
+    /* Gradients and effects */
+    --gradient-sage: linear-gradient(
+      135deg,
+      hsl(100 50% 24% / 0.8),
+      hsl(118 29% 61% / 0.4)
+    );
+    --shadow-soft: 0 4px 20px hsl(0 0% 0% / 0.3);
+    --shadow-glow: 0 0 20px hsl(118 29% 61% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold;
+  }
+}
+
+@layer utilities {
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-105 active:scale-95;
+  }
+
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  .card-elevated {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .sage-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.4s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

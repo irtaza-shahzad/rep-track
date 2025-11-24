@@ -39,9 +39,7 @@ def authenticate_local(db: Session, email: str, password: str):
     token = create_access_token({"sub": str(user.id), "email": user.email})
     return user, token
 
-    # new code 
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")  # adjust if your login path is different
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),

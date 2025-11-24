@@ -17,3 +17,4 @@ class User(Base):
     templates = relationship("WorkoutTemplate", back_populates="owner", cascade="all, delete-orphan")
     streak = relationship("Streak", back_populates="user", uselist=False)
     reminders = relationship("Reminder", back_populates="user", cascade="all, delete-orphan")
+    workout_sessions = relationship("WorkoutSession", back_populates="user", cascade="all, delete-orphan")
