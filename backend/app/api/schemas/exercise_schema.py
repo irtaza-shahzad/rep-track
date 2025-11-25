@@ -45,6 +45,7 @@ class ExerciseCreate(BaseModel):
     }
 
 class ExerciseUpdate(BaseModel):
+    name: Optional[str] = Field(None, description="Updated name of the exercise")
     description: Optional[str] = Field(None, description="Updated description of the exercise")
     category: Optional[Category] = Field(None, description="Updated category")
     difficulty: Optional[Difficulty] = Field(None, description="Updated difficulty")

@@ -147,6 +147,21 @@ def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user
             detail="You can only update your own exercises",
         )
 
+    # Check for duplicate name if name is being changed
+    if payload.name is not None and payload.name != exercise.name:
+        existing_exercise = (
+            db.query(Exercise)
+            .filter(Exercise.name == payload.name)
+            .filter((Exercise.user_id == None) | (Exercise.user_id == user_id))
+            .first()
+        )
+        if existing_exercise:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Exercise with name '{payload.name}' already exists",
+            )
+        exercise.name = payload.name
+
     if payload.description is not None:
         exercise.description = payload.description
     if payload.category is not None:

@@ -54,9 +54,11 @@ const ExerciseLibrary = () => {
   
   // Dialog states
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+  const [isEditExerciseOpen, setIsEditExerciseOpen] = useState(false);
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
   const [isEditTemplateOpen, setIsEditTemplateOpen] = useState(false);
   const [isViewTemplateOpen, setIsViewTemplateOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [viewingTemplate, setViewingTemplate] = useState<WorkoutTemplate | null>(null);
   
@@ -252,6 +254,86 @@ const ExerciseLibrary = () => {
         description: error.response?.data?.detail || "Failed to delete exercise",
         variant: "destructive",
       });
+    }
+  };
+
+  // Edit exercise - open dialog with pre-filled data
+  const handleEditExercise = (exercise: Exercise) => {
+    setEditingExercise(exercise);
+    setNewExerciseName(exercise.name);
+    setNewExerciseDescription(exercise.description || '');
+    setNewExerciseCategory(exercise.category);
+    setNewExerciseMuscleGroup(exercise.muscleGroup.replace(/([A-Z])/g, ' $1').trim()); // Convert "FullBody" to "Full Body"
+    setNewExerciseDifficulty(exercise.difficulty);
+    setIsEditExerciseOpen(true);
+  };
+
+  // Update exercise
+  const handleUpdateExercise = async () => {
+    if (!editingExercise) return;
+
+    if (!newExerciseName.trim()) {
+      toast({
+        title: "Error",
+        description: "Exercise name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newExerciseDescription && !newExerciseCategory && !newExerciseMuscleGroup && !newExerciseDifficulty && newExerciseName === editingExercise.name) {
+      toast({
+        title: "Error",
+        description: "Please modify at least one field",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const updatedExercise = await exerciseService.updateExercise(editingExercise.id, {
+        name: newExerciseName !== editingExercise.name ? newExerciseName : undefined,
+        description: newExerciseDescription || undefined,
+        category: newExerciseCategory as Category,
+        muscle_group: newExerciseMuscleGroup as MuscleGroup,
+        difficulty: newExerciseDifficulty as Difficulty,
+      });
+
+      // Update local state
+      setExercises(prev => prev.map(ex => 
+        ex.id === editingExercise.id ? {
+          ...ex,
+          name: updatedExercise.name,
+          category: updatedExercise.category,
+          muscleGroup: updatedExercise.muscle_group.replace(' ', ''),
+          difficulty: updatedExercise.difficulty,
+          description: updatedExercise.description,
+          icon: getCategoryIcon(updatedExercise.category),
+        } : ex
+      ));
+
+      // Reset form
+      setNewExerciseName('');
+      setNewExerciseDescription('');
+      setNewExerciseCategory('');
+      setNewExerciseMuscleGroup('');
+      setNewExerciseDifficulty('');
+      setEditingExercise(null);
+      setIsEditExerciseOpen(false);
+      
+      toast({
+        title: "Exercise Updated",
+        description: `${editingExercise.name} has been updated`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to update exercise",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -614,6 +696,87 @@ const ExerciseLibrary = () => {
                 </DialogContent>
               </Dialog>
 
+              {/* Edit Exercise Dialog */}
+              <Dialog open={isEditExerciseOpen} onOpenChange={(open) => {
+                setIsEditExerciseOpen(open);
+                if (!open) {
+                  // Reset form when closing
+                  setNewExerciseName('');
+                  setNewExerciseDescription('');
+                  setNewExerciseCategory('');
+                  setNewExerciseMuscleGroup('');
+                  setNewExerciseDifficulty('');
+                  setEditingExercise(null);
+                }
+              }}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Exercise</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Exercise Name *</Label>
+                      <Input
+                        value={newExerciseName}
+                        onChange={(e) => setNewExerciseName(e.target.value)}
+                        placeholder="e.g., Barbell Squat"
+                      />
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea
+                        value={newExerciseDescription}
+                        onChange={(e) => setNewExerciseDescription(e.target.value)}
+                        placeholder="Optional description"
+                      />
+                    </div>
+                    <div>
+                      <Label>Category</Label>
+                      <Select value={newExerciseCategory} onValueChange={setNewExerciseCategory}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map(cat => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Muscle Group</Label>
+                      <Select value={newExerciseMuscleGroup} onValueChange={setNewExerciseMuscleGroup}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select muscle group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {muscleGroups.map(mg => (
+                            <SelectItem key={mg} value={mg}>{mg}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Difficulty</Label>
+                      <Select value={newExerciseDifficulty} onValueChange={setNewExerciseDifficulty}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select difficulty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {difficulties.map(diff => (
+                            <SelectItem key={diff} value={diff}>{diff}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleUpdateExercise} className="w-full" disabled={submitting}>
+                      {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Update Exercise
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {/* Exercise List */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredExercises.map((exercise) => {
@@ -626,19 +789,32 @@ const ExerciseLibrary = () => {
                             <Icon className="h-5 w-5 text-primary" />
                             <div>
                               <CardTitle className="text-base">{exercise.name}</CardTitle>
-                              {exercise.isSystem && (
+                              {exercise.isSystem ? (
                                 <span className="text-xs text-muted-foreground">System</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Custom</span>
                               )}
                             </div>
                           </div>
                           {!exercise.isSystem && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteExercise(exercise.id, exercise.name, exercise.isSystem)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditExercise(exercise)}
+                                title="Edit exercise"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteExercise(exercise.id, exercise.name, exercise.isSystem)}
+                                title="Delete exercise"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </CardHeader>
@@ -780,14 +956,16 @@ const ExerciseLibrary = () => {
                     )}
                     <div>
                       <Label>Exercises ({viewingTemplate?.exercises.length})</Label>
-                      <ul className="mt-2 space-y-1">
-                        {viewingTemplate?.exercises.map((ex, idx) => (
-                          <li key={idx} className="text-sm flex items-center gap-2">
-                            <span className="text-muted-foreground">{idx + 1}.</span>
-                            {ex}
-                          </li>
-                        ))}
-                      </ul>
+                      <ScrollArea className="h-[280px] mt-2 rounded-md border p-4">
+                        <ul className="space-y-2">
+                          {viewingTemplate?.exercises.map((ex, idx) => (
+                            <li key={idx} className="text-sm flex items-center gap-2">
+                              <span className="text-muted-foreground font-medium">{idx + 1}.</span>
+                              <span>{ex}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </ScrollArea>
                     </div>
                     <div className="flex gap-2">
                       <Button onClick={() => handleStartWorkout(viewingTemplate!)} className="flex-1">
