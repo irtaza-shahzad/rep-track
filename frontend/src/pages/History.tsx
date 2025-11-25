@@ -1,18 +1,28 @@
-import { Calendar, Clock, Dumbbell, X } from 'lucide-react';
+import { Calendar, Clock, Dumbbell, X, Filter, ArrowUpDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Layout from '@/components/Layout';
 import { getWorkoutHistory, SavedWorkout } from '@/lib/workoutStorage';
 import { useEffect, useState } from 'react';
+import PageHeader from '@/components/PageHeader';
 
 const History = () => {
   const [workoutHistory, setWorkoutHistory] = useState<SavedWorkout[]>([]);
   const [selectedWorkout, setSelectedWorkout] = useState<SavedWorkout | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Filter states
+  const [dateRange, setDateRange] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('date-desc');
+  const [exerciseFilter, setExerciseFilter] = useState<string>('');
+  const [templateFilter, setTemplateFilter] = useState<string>('all');
 
   useEffect(() => {
+    // Load workout history (mock data seeding removed - will be replaced with real API)
     const savedWorkouts = getWorkoutHistory();
     setWorkoutHistory(savedWorkouts);
   }, []);
@@ -27,18 +37,121 @@ const History = () => {
     setIsDialogOpen(true);
   };
 
+  // Filter and sort workouts
+  const filteredAndSortedWorkouts = workoutHistory
+    .filter(workout => {
+      // Date range filter
+      if (dateRange !== 'all') {
+        const workoutDate = new Date(workout.date);
+        const now = new Date();
+        const daysAgo = parseInt(dateRange);
+        const cutoffDate = new Date(now.setDate(now.getDate() - daysAgo));
+        if (workoutDate < cutoffDate) return false;
+      }
+      
+      // Template filter (mock - would need template info in workout data)
+      if (templateFilter !== 'all' && workout.name !== templateFilter) {
+        return false;
+      }
+      
+      // Exercise filter
+      if (exerciseFilter.trim()) {
+        return workout.exercises.some(ex => 
+          ex.name.toLowerCase().includes(exerciseFilter.toLowerCase())
+        );
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        case 'date-asc':
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case 'volume-desc':
+          return b.totalVolume - a.totalVolume;
+        case 'volume-asc':
+          return a.totalVolume - b.totalVolume;
+        case 'duration-desc':
+          return b.duration - a.duration;
+        case 'duration-asc':
+          return a.duration - b.duration;
+        default:
+          return 0;
+      }
+    });
+  
+  // Get unique workout names for template filter
+  const uniqueWorkoutNames = Array.from(new Set(workoutHistory.map(w => w.name)));
+
   return (
     <Layout>
-      <div className="p-4 md:pl-72 md:p-8 max-w-4xl">
-        {/* Header */}
-        <div className="mb-6 animate-slide-up">
-          <h1 className="text-3xl font-bold mb-2">Workout History</h1>
-          <p className="text-muted-foreground">Review your past sessions</p>
+      <div className="w-full min-h-screen">
+        <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
+        <PageHeader 
+          title="Workout History" 
+          subtitle="Review your past sessions"
+        />
+
+        {/* Filters */}
+        <div className="mb-6 space-y-4 animate-slide-up">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="7">Last 7 Days</SelectItem>
+                <SelectItem value="30">Last 30 Days</SelectItem>
+                <SelectItem value="90">Last 90 Days</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={templateFilter} onValueChange={setTemplateFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Workout Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Workouts</SelectItem>
+                {uniqueWorkoutNames.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date-desc">Date (Newest)</SelectItem>
+                <SelectItem value="date-asc">Date (Oldest)</SelectItem>
+                <SelectItem value="volume-desc">Volume (Highest)</SelectItem>
+                <SelectItem value="volume-asc">Volume (Lowest)</SelectItem>
+                <SelectItem value="duration-desc">Duration (Longest)</SelectItem>
+                <SelectItem value="duration-asc">Duration (Shortest)</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="Search exercises..."
+              value={exerciseFilter}
+              onChange={(e) => setExerciseFilter(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
         </div>
 
         {/* History List */}
         <div className="space-y-4 animate-slide-up">
-          {workoutHistory.map((workout, index) => (
+          {filteredAndSortedWorkouts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No workouts found matching your filters.</p>
+            </div>
+          ) : (
+            filteredAndSortedWorkouts.map((workout, index) => (
             <Card 
               key={index} 
               className="card-elevated hover-scale cursor-pointer"
@@ -77,35 +190,26 @@ const History = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          ))
+          )}
         </div>
 
         {/* Workout Details Modal */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <DialogTitle className="text-2xl mb-2">{selectedWorkout?.name}</DialogTitle>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>{selectedWorkout?.date}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{selectedWorkout && formatDuration(selectedWorkout.duration)}</span>
-                    </div>
+              <div>
+                <DialogTitle className="text-2xl mb-2">{selectedWorkout?.name}</DialogTitle>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>{selectedWorkout?.date}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    <span>{selectedWorkout && formatDuration(selectedWorkout.duration)}</span>
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsDialogOpen(false)}
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </DialogHeader>
 
@@ -175,6 +279,7 @@ const History = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
     </Layout>
   );

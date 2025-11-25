@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import datetime
 from enum import Enum
 
-
 class MuscleGroup(str, Enum):
     CHEST = "Chest"
     BACK = "Back"
@@ -14,7 +13,6 @@ class MuscleGroup(str, Enum):
     FULL_BODY = "FullBody"
     OTHER = "Other"
 
-
 class Category(str, Enum):
     STRENGTH = "Strength"
     CARDIO = "Cardio"
@@ -22,12 +20,10 @@ class Category(str, Enum):
     MOBILITY = "Mobility"
     OTHER = "Other"
 
-
 class Difficulty(str, Enum):
     BEGINNER = "Beginner"
     INTERMEDIATE = "Intermediate"
     ADVANCED = "Advanced"
-
 
 class ExerciseCreate(BaseModel):
     name: str = Field(..., description="Name of the exercise")
@@ -48,8 +44,8 @@ class ExerciseCreate(BaseModel):
         }
     }
 
-
 class ExerciseUpdate(BaseModel):
+    name: Optional[str] = Field(None, description="Updated name of the exercise")
     description: Optional[str] = Field(None, description="Updated description of the exercise")
     category: Optional[Category] = Field(None, description="Updated category")
     difficulty: Optional[Difficulty] = Field(None, description="Updated difficulty")
@@ -65,7 +61,6 @@ class ExerciseUpdate(BaseModel):
             }
         }
     }
-
 
 class ExerciseResponse(BaseModel):
     id: int

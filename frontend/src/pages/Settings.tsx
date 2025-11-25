@@ -1,4 +1,4 @@
-import { User, Bell, Download, Upload, LogOut, HelpCircle, Mail } from 'lucide-react';
+import { User, Bell, Download, LogOut, HelpCircle, Mail, Palette, Globe, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -18,22 +18,24 @@ import Layout from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { authService } from '@/services/authService';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [workoutReminders, setWorkoutReminders] = useState(false);
-  const [progressUpdates, setProgressUpdates] = useState(false);
+  const { preferences, updateWeightUnit, updateDistanceUnit, updateTimeFormat } = usePreferences();
 
   const handleLogout = () => {
-    localStorage.removeItem('fittrack_user');
+    authService.logout();
     navigate('/');
   };
 
   return (
     <Layout>
-      <div className="p-4 md:pl-72 md:p-8 max-w-4xl">
+      <div className="w-full min-h-screen">
+        <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-6">
         {/* Header */}
         <div className="mb-8 animate-slide-up">
           <h1 className="text-3xl font-bold mb-2">Settings</h1>
@@ -59,74 +61,132 @@ const Settings = () => {
                 <Label className="text-sm text-muted-foreground">Email</Label>
                 <p className="font-medium mt-1">user@example.com</p>
               </div>
-              <Button variant="outline" className="w-full md:w-auto rounded-xl">
-                Edit Profile
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Reminders Section */}
+        <div className="mb-8 space-y-4">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider px-1">
+            Reminders
+          </h2>
+          <Card className="card-elevated animate-slide-up hover-scale transition-all duration-200">
+            <CardContent className="p-0">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start rounded-xl h-auto py-4 px-6 hover:bg-muted/30"
+                onClick={() => navigate('/reminders')}
+              >
+                <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center mr-3">
+                  <Bell className="h-4 w-4 text-accent" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-medium">Workout Reminders</p>
+                  <p className="text-xs text-muted-foreground">Set up notifications to stay on track</p>
+                </div>
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Notifications Section */}
+        {/* Preferences Section */}
         <div className="mb-8 space-y-4">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider px-1">
-            Notifications
+            Preferences
           </h2>
           <Card className="card-elevated animate-slide-up hover-scale transition-all duration-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center">
-                  <Bell className="h-4 w-4 text-accent" />
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Palette className="h-4 w-4 text-primary" />
                 </div>
-                Notification Preferences
+                Display & Units
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div 
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] transition-transform"
-                onClick={() => setWorkoutReminders(!workoutReminders)}
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
+                onClick={() => {
+                  const newUnit = preferences.weightUnit === 'lbs' ? 'kg' : 'lbs';
+                  updateWeightUnit(newUnit);
+                  toast({ title: 'Unit Updated', description: `Weight unit changed to ${newUnit}` });
+                }}
               >
                 <div className="flex-1">
-                  <Label htmlFor="workout-reminders" className="cursor-pointer font-medium">
-                    Workout Reminders
-                  </Label>
+                  <Label className="cursor-pointer font-medium">Weight Unit</Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Get notified about scheduled workouts
-                  </p>
-                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                    Uses system notifications
+                    {preferences.weightUnit === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}
                   </p>
                 </div>
-                <Switch 
-                  id="workout-reminders" 
-                  checked={workoutReminders}
-                  onCheckedChange={setWorkoutReminders}
-                  className="ml-4"
-                />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-primary">{preferences.weightUnit}</span>
+                  <Switch 
+                    checked={preferences.weightUnit === 'kg'}
+                    onCheckedChange={(checked) => {
+                      const newUnit = checked ? 'kg' : 'lbs';
+                      updateWeightUnit(newUnit);
+                      toast({ title: 'Unit Updated', description: `Weight unit changed to ${newUnit}` });
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div 
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
+                onClick={() => {
+                  const newUnit = preferences.distanceUnit === 'miles' ? 'km' : 'miles';
+                  updateDistanceUnit(newUnit);
+                  toast({ title: 'Unit Updated', description: `Distance unit changed to ${newUnit}` });
+                }}
+              >
+                <div className="flex-1">
+                  <Label className="cursor-pointer font-medium">Distance Unit</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {preferences.distanceUnit === 'miles' ? 'Miles' : 'Kilometers'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-primary">{preferences.distanceUnit}</span>
+                  <Switch 
+                    checked={preferences.distanceUnit === 'km'}
+                    onCheckedChange={(checked) => {
+                      const newUnit = checked ? 'km' : 'miles';
+                      updateDistanceUnit(newUnit);
+                      toast({ title: 'Unit Updated', description: `Distance unit changed to ${newUnit}` });
+                    }}
+                  />
+                </div>
               </div>
 
               <Separator />
 
               <div 
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] transition-transform"
-                onClick={() => setProgressUpdates(!progressUpdates)}
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
+                onClick={() => {
+                  const newFormat = preferences.timeFormat === '12h' ? '24h' : '12h';
+                  updateTimeFormat(newFormat);
+                  toast({ title: 'Format Updated', description: `Time format changed to ${newFormat === '12h' ? '12-hour' : '24-hour'}` });
+                }}
               >
                 <div className="flex-1">
-                  <Label htmlFor="progress-updates" className="cursor-pointer font-medium">
-                    Progress Updates
-                  </Label>
+                  <Label className="cursor-pointer font-medium">Time Format</Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Weekly summary of your progress
-                  </p>
-                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                    Delivered via email
+                    {preferences.timeFormat === '12h' ? '12-hour clock (AM/PM)' : '24-hour clock'}
                   </p>
                 </div>
-                <Switch 
-                  id="progress-updates" 
-                  checked={progressUpdates}
-                  onCheckedChange={setProgressUpdates}
-                  className="ml-4"
-                />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-primary">{preferences.timeFormat}</span>
+                  <Switch 
+                    checked={preferences.timeFormat === '24h'}
+                    onCheckedChange={(checked) => {
+                      const newFormat = checked ? '24h' : '12h';
+                      updateTimeFormat(newFormat);
+                      toast({ title: 'Format Updated', description: `Time format changed to ${newFormat === '12h' ? '12-hour' : '24-hour'}` });
+                    }}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -147,31 +207,17 @@ const Settings = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start rounded-xl h-auto py-3"
-                  onClick={() => toast({ title: "Export Started", description: "Your workout data is being prepared for download." })}
-                >
-                  <Download className="h-4 w-4 mr-3" />
-                  <div className="text-left">
-                    <p className="font-medium">Export Workout Data</p>
-                    <p className="text-xs text-muted-foreground">Download your complete history</p>
-                  </div>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start rounded-xl h-auto py-3"
-                  onClick={() => toast({ title: "Import", description: "Import functionality coming soon." })}
-                >
-                  <Upload className="h-4 w-4 mr-3" />
-                  <div className="text-left">
-                    <p className="font-medium">Import Workout Data</p>
-                    <p className="text-xs text-muted-foreground">Backup or transfer your workout history</p>
-                  </div>
-                </Button>
-              </div>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start rounded-xl h-auto py-3"
+                onClick={() => toast({ title: "Export Started", description: "Your workout data is being prepared for download." })}
+              >
+                <Download className="h-4 w-4 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium">Export Workout Data</p>
+                  <p className="text-xs text-muted-foreground">Download your complete history</p>
+                </div>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -250,6 +296,7 @@ const Settings = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        </div>
       </div>
     </Layout>
   );

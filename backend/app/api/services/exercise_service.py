@@ -7,12 +7,6 @@ from sqlalchemy import or_
 
 
 def create_exercise(db: Session, exercise: ExerciseCreate, user_id: int | None = None) -> Exercise:
-    """
-    Creates a new exercise.
-    - If an exercise with the same name already exists (global or for this user), throw a conflict error.
-    - Otherwise, create a new exercise.
-    - If a user_id is provided (user-added exercise), link it to that user.
-    """
     existing_exercise = (
         db.query(Exercise)
         .filter(Exercise.name == exercise.name)
@@ -152,6 +146,21 @@ def update_exercise(db: Session, exercise_id: int, payload: ExerciseUpdate, user
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own exercises",
         )
+
+    # Check for duplicate name if name is being changed
+    if payload.name is not None and payload.name != exercise.name:
+        existing_exercise = (
+            db.query(Exercise)
+            .filter(Exercise.name == payload.name)
+            .filter((Exercise.user_id == None) | (Exercise.user_id == user_id))
+            .first()
+        )
+        if existing_exercise:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Exercise with name '{payload.name}' already exists",
+            )
+        exercise.name = payload.name
 
     if payload.description is not None:
         exercise.description = payload.description

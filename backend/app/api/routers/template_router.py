@@ -2,15 +2,12 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
-from app.api.schemas.template_schema import ( WorkoutTemplateCreate, WorkoutTemplateOut, WorkoutTemplateUpdate)
+from app.api.schemas.template_schema import WorkoutTemplateCreate, WorkoutTemplateOut, WorkoutTemplateUpdate
 from app.api.services import template_service
 from app.api.services.auth_service import get_current_user
 from app.api.schemas.user_schema import UserResponse
 
-router = APIRouter(
-    prefix="/templates",
-    tags=["Workout Templates"]
-)
+router = APIRouter(prefix="/templates",tags=["Workout Templates"])
 
 # Create a new workout template
 @router.post("/", response_model=WorkoutTemplateOut, status_code=status.HTTP_201_CREATED)
