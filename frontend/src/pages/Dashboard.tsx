@@ -7,7 +7,7 @@ import Layout from '@/components/Layout';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { StartWorkoutDialog } from '@/components/StartWorkoutDialog';
 import { TemplatePickerDialog } from '@/components/TemplatePickerDialog';
-import { getWorkoutHistory, SavedWorkout, formatWorkoutDate, seedMockWorkouts } from '@/lib/workoutStorage';
+import { getWorkoutHistory, SavedWorkout, formatWorkoutDate } from '@/lib/workoutStorage';
 import PageHeader from '@/components/PageHeader';
 import { useWorkout } from '@/contexts/WorkoutContext';
 import { useToast } from '@/hooks/use-toast';
@@ -59,8 +59,7 @@ const Dashboard = () => {
     const stored = storageAdapter.get<WorkoutTemplate[]>(STORAGE_KEYS.WORKOUT_TEMPLATES);
     setTemplates(stored || []);
     
-    // Seed mock workouts and load workout history
-    seedMockWorkouts();
+    // Load workout history (mock data seeding removed - will be replaced with real API)
     setWorkoutHistory(getWorkoutHistory());
   }, []);
 

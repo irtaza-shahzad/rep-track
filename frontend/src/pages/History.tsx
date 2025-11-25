@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Layout from '@/components/Layout';
-import { getWorkoutHistory, SavedWorkout, seedMockWorkouts } from '@/lib/workoutStorage';
+import { getWorkoutHistory, SavedWorkout } from '@/lib/workoutStorage';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 
@@ -22,7 +22,7 @@ const History = () => {
   const [templateFilter, setTemplateFilter] = useState<string>('all');
 
   useEffect(() => {
-    seedMockWorkouts(); // Add realistic mock data if empty
+    // Load workout history (mock data seeding removed - will be replaced with real API)
     const savedWorkouts = getWorkoutHistory();
     setWorkoutHistory(savedWorkouts);
   }, []);

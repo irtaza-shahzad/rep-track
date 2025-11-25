@@ -25,6 +25,14 @@ const Login = () => {
     }
   }, [location]);
 
+  // Clear form when switching between login and signup
+  const handleToggleMode = () => {
+    setIsLogin(!isLogin);
+    setFullName('');
+    setEmail('');
+    setPassword('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -38,18 +46,41 @@ const Login = () => {
           description: 'Successfully signed in',
         });
       } else {
-        // Register
-        await authService.register({ full_name: fullName, email, password });
+        // Register - validate full name is provided
+        if (!fullName.trim()) {
+          toast({
+            title: 'Error',
+            description: 'Please enter your full name',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+        await authService.register({ name: fullName, email, password });
+        
+        // Show success message and switch to login
         toast({
           title: 'Account created!',
-          description: 'Welcome to FitTrack',
+          description: 'Please sign in with your credentials',
         });
+        
+        // Clear form and switch to login mode
+        setFullName('');
+        setPassword('');
+        setIsLogin(true);
+        setIsLoading(false);
+        return;
       }
       navigate('/dashboard');
     } catch (error: any) {
+      console.error('Authentication error:', error);
+      const errorMessage = error.response?.data?.detail 
+        || error.response?.data?.message 
+        || error.message 
+        || 'Authentication failed';
       toast({
         title: 'Error',
-        description: error.response?.data?.detail || 'Authentication failed',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -71,44 +102,50 @@ const Login = () => {
         </CardHeader>
         
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" key={isLogin ? 'login' : 'signup'}>
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="signup-fullName">Full Name</Label>
                 <Input
-                  id="fullName"
+                  id="signup-fullName"
+                  name="signup-fullName"
                   type="text"
                   placeholder="John Doe"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  required
+                  required={!isLogin}
+                  autoComplete="off"
                   className="rounded-xl"
                 />
               </div>
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor={isLogin ? "login-email" : "signup-email"}>Email</Label>
               <Input
-                id="email"
+                id={isLogin ? "login-email" : "signup-email"}
+                name={isLogin ? "login-email" : "signup-email"}
                 type="email"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="off"
                 className="rounded-xl"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor={isLogin ? "login-password" : "signup-password"}>Password</Label>
               <Input
-                id="password"
+                id={isLogin ? "login-password" : "signup-password"}
+                name={isLogin ? "login-password" : "signup-password"}
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="off"
                 className="rounded-xl"
               />
             </div>
@@ -120,8 +157,9 @@ const Login = () => {
 
           <div className="mt-6 text-center text-sm">
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={handleToggleMode}
               className="text-primary hover:underline"
+              type="button"
             >
               {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
             </button>
