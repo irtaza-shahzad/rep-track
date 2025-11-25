@@ -20,13 +20,14 @@ class WorkoutSetBase(BaseModel):
     distance: Optional[float] = Field(None, description="Distance for cardio exercises")
     rpe: Optional[int] = Field(None, ge=1, le=10, description="Rate of Perceived Exertion (1-10)")
     notes: Optional[str] = Field(None, max_length=500, description="Notes for this set")
+    is_completed: bool = Field(False, description="Whether this set is completed (required to count toward totals)")
     is_warmup: bool = Field(False, description="Whether this is a warmup set")
     is_dropset: bool = Field(False, description="Whether this is a dropset")
     is_failure: bool = Field(False, description="Whether this set was taken to failure")
 
 
 class WorkoutSetCreate(WorkoutSetBase):
-    set_number: int = Field(..., ge=1, description="Set number within the exercise")
+    set_number: Optional[int] = Field(None, ge=1, description="Set number within the exercise (auto-calculated if not provided)")
 
 
 class WorkoutSetUpdate(WorkoutSetBase):
@@ -37,6 +38,7 @@ class WorkoutSetResponse(WorkoutSetBase):
     id: int
     workout_exercise_id: int
     set_number: int
+    completed_at: Optional[datetime] = Field(None, description="When the set was marked complete")
 
     model_config = {"from_attributes": True}
 

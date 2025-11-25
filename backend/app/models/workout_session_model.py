@@ -44,7 +44,7 @@ class WorkoutSession(Base):
 
     # Relationships
     user = relationship("User", back_populates="workout_sessions")
-    template = relationship("WorkoutTemplate", backref="workout_sessions")
+    template = relationship("WorkoutTemplate", back_populates="workout_sessions")
     workout_exercises = relationship(
         "WorkoutExercise",
         back_populates="workout_session",

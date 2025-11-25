@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { preferencesStorage } from '../infrastructure/storage/LocalStorageAdapter';
 
 export type WeightUnit = 'lbs' | 'kg';
 export type DistanceUnit = 'miles' | 'km';
@@ -22,8 +23,6 @@ interface PreferencesContextType {
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
 
-const PREFERENCES_KEY = 'fittrack_preferences';
-
 const defaultPreferences: Preferences = {
   weightUnit: 'lbs',
   distanceUnit: 'miles',
@@ -33,20 +32,13 @@ const defaultPreferences: Preferences = {
 export const PreferencesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [preferences, setPreferences] = useState<Preferences>(() => {
     // Load from localStorage on mount
-    const stored = localStorage.getItem(PREFERENCES_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return defaultPreferences;
-      }
-    }
-    return defaultPreferences;
+    const stored = preferencesStorage.getPreferences();
+    return stored || defaultPreferences;
   });
 
   // Save to localStorage whenever preferences change
   useEffect(() => {
-    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+    preferencesStorage.setPreferences(preferences);
     // TODO: Also sync with backend API
     // POST /api/users/preferences
   }, [preferences]);

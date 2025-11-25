@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { usePreferences } from '@/contexts/PreferencesContext';
+import { authService } from '@/services/authService';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const Settings = () => {
   const { preferences, updateWeightUnit, updateDistanceUnit, updateTimeFormat } = usePreferences();
 
   const handleLogout = () => {
-    localStorage.removeItem('fittrack_user');
+    authService.logout();
     navigate('/');
   };
 
@@ -104,7 +105,7 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div 
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] transition-transform"
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
                 onClick={() => {
                   const newUnit = preferences.weightUnit === 'lbs' ? 'kg' : 'lbs';
                   updateWeightUnit(newUnit);
@@ -133,7 +134,7 @@ const Settings = () => {
               <Separator />
               
               <div 
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] transition-transform"
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
                 onClick={() => {
                   const newUnit = preferences.distanceUnit === 'miles' ? 'km' : 'miles';
                   updateDistanceUnit(newUnit);
@@ -162,7 +163,7 @@ const Settings = () => {
               <Separator />
 
               <div 
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-colors cursor-pointer active:scale-[0.98] transition-transform"
+                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
                 onClick={() => {
                   const newFormat = preferences.timeFormat === '12h' ? '24h' : '12h';
                   updateTimeFormat(newFormat);

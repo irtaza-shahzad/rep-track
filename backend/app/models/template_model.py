@@ -27,6 +27,12 @@ class WorkoutTemplate(Base):
         passive_deletes=True,
         order_by="TemplateExercise.position"
     )
+    
+    # relationship to WorkoutSession (sessions created from this template)
+    workout_sessions = relationship(
+        "WorkoutSession",
+        back_populates="template"
+    )
 
     def __repr__(self):
         return f"<WorkoutTemplate id={self.id} name={self.name!r} owner_id={self.owner_id}>"

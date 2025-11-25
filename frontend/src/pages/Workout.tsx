@@ -14,6 +14,8 @@ import PageHeader from '@/components/PageHeader';
 import { useWorkout } from '@/contexts/WorkoutContext';
 import ExerciseSelector from '@/components/ExerciseSelector';
 import type { Exercise as ExerciseSelectorType } from '@/components/ExerciseSelector';
+import { STORAGE_KEYS } from '@/core/constants/AppConstants';
+import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
 
 interface Exercise {
   id: string;
@@ -347,7 +349,7 @@ const Workout = () => {
     const finalName = workoutName || `Workout – ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     
     // Save workout count
-    localStorage.setItem('workoutCount', workoutNumber.toString());
+    storageAdapter.set(STORAGE_KEYS.WORKOUT_COUNT, workoutNumber);
     
     // Update streak
     updateStreakOnWorkout();

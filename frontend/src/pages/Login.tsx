@@ -5,14 +5,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dumbbell } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { authService } from '@/services/authService';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     // Set initial state based on navigation from Welcome page
@@ -21,12 +25,36 @@ const Login = () => {
     }
   }, [location]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock authentication
-    const userData = isLogin ? { email } : { email, fullName };
-    localStorage.setItem('fittrack_user', JSON.stringify(userData));
-    navigate('/dashboard');
+    setIsLoading(true);
+
+    try {
+      if (isLogin) {
+        // Login
+        await authService.login({ email, password });
+        toast({
+          title: 'Welcome back!',
+          description: 'Successfully signed in',
+        });
+      } else {
+        // Register
+        await authService.register({ full_name: fullName, email, password });
+        toast({
+          title: 'Account created!',
+          description: 'Welcome to FitTrack',
+        });
+      }
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.detail || 'Authentication failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -85,8 +113,8 @@ const Login = () => {
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              {isLogin ? 'Sign In' : 'Create Account'}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
             </Button>
           </form>
 

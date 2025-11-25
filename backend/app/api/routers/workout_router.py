@@ -52,7 +52,7 @@ def start_workout(
     
     Security: Cannot use templates belonging to other users (HTTP 403)
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.start_workout_session(db, user_id, data)
     response_data = WorkoutSessionResponse.model_validate(session)
     return created_response(response_data)
@@ -72,7 +72,7 @@ def get_active_workout(
     Get the user's currently active workout session, if any.
     Returns null if no active workout exists.
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.get_active_workout(db, user_id)
     
     if session:
@@ -99,7 +99,7 @@ def get_all_workouts(
     - Optionally filter by status (active, completed, cancelled)
     - Ordered by start_time descending (newest first)
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     sessions = workout_service.get_all_workout_sessions(db, user_id, status_filter)
     response_data = [WorkoutSessionResponse.model_validate(s) for s in sessions]
     return success_response(response_data)
@@ -122,7 +122,7 @@ def get_workout_by_id(
     - Includes all exercises and sets
     - Security guard: only owner can access
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.get_workout_session_by_id(db, session_id, user_id)
     response_data = WorkoutSessionResponse.model_validate(session)
     return success_response(response_data)
@@ -146,7 +146,7 @@ def update_workout(
     - Only active workouts can be updated
     - Security guard: only owner can update
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.update_workout_session(db, session_id, user_id, data)
     response_data = WorkoutSessionResponse.model_validate(session)
     return success_response(response_data, message="Workout session updated successfully")
@@ -172,7 +172,7 @@ def finish_workout(
     - Marks as COMPLETED
     - Returns final workout summary
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.finish_workout_session(db, session_id, user_id)
     
     # Build summary response
@@ -211,7 +211,7 @@ def cancel_workout(
     - Marks workout as CANCELLED
     - Data is preserved but not counted in analytics
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.cancel_workout_session(db, session_id, user_id)
     response_data = WorkoutSessionResponse.model_validate(session)
     return success_response(response_data, message="Workout cancelled")
@@ -235,7 +235,7 @@ def delete_workout(
     - Deletes all associated exercises and sets (cascade)
     - Security guard: only owner can delete
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_service.delete_workout_session(db, session_id, user_id)
     return success_response(None, message="Workout session deleted successfully")
 
@@ -262,7 +262,7 @@ def add_exercise_to_workout(
     - Exercise must exist in the database
     - Security guard: only owner can add exercises
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_ex = workout_service.add_exercise_to_session(db, session_id, user_id, data)
     response_data = WorkoutExerciseResponse.model_validate(workout_ex)
     return created_response(response_data)
@@ -286,7 +286,7 @@ def update_exercise_in_workout(
     - Only active workouts can be modified
     - Security guard: only owner can update
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_ex = workout_service.update_workout_exercise(db, workout_exercise_id, user_id, data)
     response_data = WorkoutExerciseResponse.model_validate(workout_ex)
     return success_response(response_data, message="Exercise updated successfully")
@@ -311,7 +311,7 @@ def remove_exercise_from_workout(
     - Only active workouts can be modified
     - Security guard: only owner can remove
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_service.remove_exercise_from_session(db, workout_exercise_id, user_id)
     return success_response(None, message="Exercise removed from workout")
 
@@ -335,7 +335,7 @@ def reorder_exercises_in_workout(
     - Only active workouts can be modified
     - Security guard: only owner can reorder
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     session = workout_service.reorder_exercises(db, session_id, user_id, data.exercise_positions)
     response_data = WorkoutSessionResponse.model_validate(session)
     return success_response(response_data, message="Exercises reordered successfully")
@@ -364,7 +364,7 @@ def add_set_to_exercise(
     - Only active workouts can be modified
     - Security guard: only owner can add sets
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_set = workout_service.add_set_to_exercise(db, workout_exercise_id, user_id, data)
     response_data = WorkoutSetResponse.model_validate(workout_set)
     return created_response(response_data)
@@ -389,7 +389,7 @@ def update_workout_set(
     - Only active workouts can be modified
     - Security guard: only owner can update
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_set = workout_service.update_set(db, set_id, user_id, data)
     response_data = WorkoutSetResponse.model_validate(workout_set)
     return success_response(response_data, message="Set updated successfully")
@@ -413,6 +413,6 @@ def delete_workout_set(
     - Only active workouts can be modified
     - Security guard: only owner can delete
     """
-    user_id = payload.get("sub")
+    user_id = int(payload.get("sub"))
     workout_service.delete_set(db, set_id, user_id)
     return success_response(None, message="Set deleted successfully")

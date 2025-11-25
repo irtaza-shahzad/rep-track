@@ -1,3 +1,6 @@
+import { STORAGE_KEYS } from '../core/constants/AppConstants';
+import { storageAdapter } from '../infrastructure/storage/LocalStorageAdapter';
+
 export interface SavedWorkout {
   id: string;
   name: string;
@@ -15,8 +18,6 @@ export interface SavedWorkout {
   totalVolume: number;
 }
 
-const STORAGE_KEY = 'workout_history';
-
 export const saveWorkout = (workout: Omit<SavedWorkout, 'id' | 'timestamp'>): void => {
   const workouts = getWorkoutHistory();
   const newWorkout: SavedWorkout = {
@@ -26,18 +27,12 @@ export const saveWorkout = (workout: Omit<SavedWorkout, 'id' | 'timestamp'>): vo
   };
 
   workouts.unshift(newWorkout);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
+  storageAdapter.set(STORAGE_KEYS.WORKOUT_HISTORY, workouts);
 };
 
 export const getWorkoutHistory = (): SavedWorkout[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return [];
-
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return [];
-  }
+  const stored = storageAdapter.get<SavedWorkout[]>(STORAGE_KEYS.WORKOUT_HISTORY);
+  return stored || [];
 };
 
 export const formatWorkoutDate = (timestamp: number): string => {
@@ -285,5 +280,5 @@ export const seedMockWorkouts = (): void => {
     },
   ];
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(mockWorkouts));
+  storageAdapter.set(STORAGE_KEYS.WORKOUT_HISTORY, mockWorkouts);
 };

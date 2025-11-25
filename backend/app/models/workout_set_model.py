@@ -1,6 +1,7 @@
 # app/models/workout_set_model.py
-from sqlalchemy import Column, Integer, Float, ForeignKey, String, Boolean
+from sqlalchemy import Column, Integer, Float, ForeignKey, String, Boolean, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime, timezone
 from app.core.database import Base
 
 
@@ -8,7 +9,8 @@ class WorkoutSet(Base):
     """
     Represents a single set within a workout exercise.
     All fields (weight, reps, etc.) are optional to support flexible logging.
-    Invalid/empty sets are discarded when finishing the workout.
+    A set must be marked as completed (is_completed=True) to count toward totals.
+    Invalid/incomplete sets are discarded when finishing the workout.
     """
     __tablename__ = "workout_sets"
 
@@ -24,6 +26,10 @@ class WorkoutSet(Base):
     distance = Column(Float, nullable=True)  # For cardio (km, miles, meters)
     rpe = Column(Integer, nullable=True)  # Rate of Perceived Exertion (1-10)
     notes = Column(String(500), nullable=True)
+    
+    # Completion tracking - CRITICAL for workout flow
+    is_completed = Column(Boolean, default=False, nullable=False)  # Must be True to count
+    completed_at = Column(DateTime(timezone=True), nullable=True)  # When set was marked complete
     
     # Set type indicators
     is_warmup = Column(Boolean, default=False)

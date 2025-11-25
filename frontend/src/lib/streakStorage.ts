@@ -1,3 +1,5 @@
+import { streakStorage as storage } from '../infrastructure/storage/LocalStorageAdapter';
+
 export interface StreakConfig {
   targetDaysPerWeek: number;
   startDate: string;
@@ -7,21 +9,12 @@ export interface StreakConfig {
   weeklyProgress: { [weekKey: string]: number };
 }
 
-const STREAK_KEY = 'fitness_streak';
-
 export const getStreakConfig = (): StreakConfig | null => {
-  const stored = localStorage.getItem(STREAK_KEY);
-  if (!stored) return null;
-  
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return null;
-  }
+  return storage.getStreakConfig();
 };
 
 export const saveStreakConfig = (config: StreakConfig): void => {
-  localStorage.setItem(STREAK_KEY, JSON.stringify(config));
+  storage.setStreakConfig(config);
 };
 
 export const initializeStreak = (targetDaysPerWeek: number): StreakConfig => {
@@ -33,7 +26,7 @@ export const initializeStreak = (targetDaysPerWeek: number): StreakConfig => {
     lastWorkoutDate: null,
     weeklyProgress: {},
   };
-  
+
   saveStreakConfig(config);
   return config;
 };
@@ -41,19 +34,19 @@ export const initializeStreak = (targetDaysPerWeek: number): StreakConfig => {
 export const updateStreakOnWorkout = (): void => {
   const config = getStreakConfig();
   if (!config) return;
-  
+
   const today = new Date().toISOString().split('T')[0];
   const lastWorkout = config.lastWorkoutDate;
-  
+
   // If already worked out today, don't update
   if (lastWorkout === today) return;
-  
+
   // Check if streak continues (workout within last day)
   if (lastWorkout) {
     const lastDate = new Date(lastWorkout);
     const currentDate = new Date(today);
     const daysDiff = Math.floor((currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDiff === 1) {
       config.currentStreak += 1;
     } else if (daysDiff > 1) {
@@ -62,25 +55,25 @@ export const updateStreakOnWorkout = (): void => {
   } else {
     config.currentStreak = 1;
   }
-  
+
   // Update longest streak
   if (config.currentStreak > config.longestStreak) {
     config.longestStreak = config.currentStreak;
   }
-  
+
   config.lastWorkoutDate = today;
-  
+
   // Update weekly progress
   const weekKey = getWeekKey(new Date(today));
   config.weeklyProgress[weekKey] = (config.weeklyProgress[weekKey] || 0) + 1;
-  
+
   saveStreakConfig(config);
 };
 
 export const getCurrentWeekProgress = (): number => {
   const config = getStreakConfig();
   if (!config) return 0;
-  
+
   const weekKey = getWeekKey(new Date());
   return config.weeklyProgress[weekKey] || 0;
 };

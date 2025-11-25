@@ -14,6 +14,8 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import ExerciseSelector from '@/components/ExerciseSelector';
 import { useWorkout } from '@/contexts/WorkoutContext';
+import { STORAGE_KEYS } from '@/core/constants/AppConstants';
+import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
 
 interface Exercise {
   id: string;
@@ -287,7 +289,7 @@ const ExerciseLibrary = () => {
 
     const updatedTemplates = [...templates, newTemplate];
     setTemplates(updatedTemplates);
-    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
+    storageAdapter.set(STORAGE_KEYS.WORKOUT_TEMPLATES, updatedTemplates);
     setNewTemplateName('');
     setNewTemplateDescription('');
     setSelectedExercises([]);
@@ -349,7 +351,7 @@ const ExerciseLibrary = () => {
     );
     
     setTemplates(updatedTemplates);
-    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
+    storageAdapter.set(STORAGE_KEYS.WORKOUT_TEMPLATES, updatedTemplates);
     setNewTemplateName('');
     setNewTemplateDescription('');
     setSelectedExercises([]);
@@ -365,7 +367,7 @@ const ExerciseLibrary = () => {
   const handleDeleteTemplate = (id: string, name: string) => {
     const updatedTemplates = templates.filter(t => t.id !== id);
     setTemplates(updatedTemplates);
-    localStorage.setItem('workout_templates', JSON.stringify(updatedTemplates));
+    storageAdapter.set(STORAGE_KEYS.WORKOUT_TEMPLATES, updatedTemplates);
     toast({
       title: "Template Deleted",
       description: `${name} has been removed`,

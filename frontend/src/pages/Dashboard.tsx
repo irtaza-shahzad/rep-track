@@ -11,6 +11,8 @@ import { getWorkoutHistory, SavedWorkout, formatWorkoutDate, seedMockWorkouts } 
 import PageHeader from '@/components/PageHeader';
 import { useWorkout } from '@/contexts/WorkoutContext';
 import { useToast } from '@/hooks/use-toast';
+import { STORAGE_KEYS } from '@/core/constants/AppConstants';
+import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
 
 interface WorkoutTemplate {
   id: string;
@@ -54,14 +56,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Load templates from localStorage
-    const stored = localStorage.getItem('workout_templates');
-    if (stored) {
-      try {
-        setTemplates(JSON.parse(stored));
-      } catch {
-        setTemplates([]);
-      }
-    }
+    const stored = storageAdapter.get<WorkoutTemplate[]>(STORAGE_KEYS.WORKOUT_TEMPLATES);
+    setTemplates(stored || []);
     
     // Seed mock workouts and load workout history
     seedMockWorkouts();

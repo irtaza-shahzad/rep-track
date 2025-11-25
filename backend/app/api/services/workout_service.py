@@ -26,13 +26,24 @@ def start_workout_session(db: Session, user_id: int, data: WorkoutSessionStart) 
     Start a new workout session.
     Can be empty or loaded from a template.
     """
+    # Check if user already has an active workout
+    active_workout = get_active_workout(db, user_id)
+    if active_workout:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"You already have an active workout (ID: {active_workout.id}). Please finish or cancel it before starting a new one."
+        )
+    
+    # Set default name if not provided
+    workout_name = data.name if data.name else "Workout"
+    
     # Create the session
     session = WorkoutSession(
         user_id=user_id,
         template_id=data.template_id,
         status=WorkoutStatus.ACTIVE,
         start_time=datetime.now(timezone.utc),
-        name=data.name,
+        name=workout_name,
         notes=data.notes,
     )
     
@@ -73,13 +84,14 @@ def start_workout_session(db: Session, user_id: int, data: WorkoutSessionStart) 
             db.flush()  # Get workout_ex.id
             
             # Create placeholder sets based on template (optional)
+            # Note: Sets are created empty - user must log actual data during workout
             if template_ex.sets and template_ex.sets > 0:
                 for set_num in range(1, template_ex.sets + 1):
                     workout_set = WorkoutSet(
                         workout_exercise_id=workout_ex.id,
                         set_number=set_num,
-                        reps=template_ex.reps,  # Pre-populate from template
-                        # Other fields remain None until user logs them
+                        # Leave reps, weight, etc. as None - user fills during workout
+                        is_completed=False  # Must be explicitly completed
                     )
                     db.add(workout_set)
     
@@ -208,7 +220,8 @@ def finish_workout_session(db: Session, session_id: int, user_id: int) -> Workou
     session.end_time = datetime.now(timezone.utc)
     session.duration_seconds = int((session.end_time - session.start_time).total_seconds())
     
-    # Process each exercise and remove invalid sets
+    # Process each exercise and remove incomplete/invalid sets
+    # Per spec: Only completed sets count toward totals
     total_volume = 0.0
     total_reps = 0
     total_sets = 0
@@ -217,24 +230,28 @@ def finish_workout_session(db: Session, session_id: int, user_id: int) -> Workou
         sets_to_keep = []
         
         for workout_set in workout_ex.workout_sets:
-            # A set is valid if it has at least weight+reps OR duration OR distance
-            is_valid = (
+            # A set is valid ONLY if:
+            # 1. It's marked as completed (is_completed=True), AND
+            # 2. It has at least weight+reps OR duration OR distance
+            has_data = (
                 (workout_set.weight is not None and workout_set.reps is not None) or
                 (workout_set.duration_seconds is not None) or
                 (workout_set.distance is not None)
             )
             
+            is_valid = workout_set.is_completed and has_data
+            
             if is_valid:
                 sets_to_keep.append(workout_set)
                 
-                # Calculate volume (weight * reps)
+                # Calculate volume (weight * reps) - exclude warmup sets optionally
                 if workout_set.weight is not None and workout_set.reps is not None:
                     total_volume += workout_set.weight * workout_set.reps
                     total_reps += workout_set.reps
                 
                 total_sets += 1
             else:
-                # Delete invalid set
+                # Delete incomplete/invalid set
                 db.delete(workout_set)
         
         # Update the workout_sets list to only include valid sets
@@ -243,6 +260,16 @@ def finish_workout_session(db: Session, session_id: int, user_id: int) -> Workou
         # If an exercise has no valid sets, optionally remove it
         if not sets_to_keep:
             db.delete(workout_ex)
+    
+    # Count remaining exercises after cleanup
+    exercises_count = len([ex for ex in session.workout_exercises if ex.workout_sets])
+    
+    # Validate at least one completed set exists
+    if total_sets == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot finish workout with no completed sets"
+        )
     
     # Update analytics fields
     session.total_volume = total_volume
@@ -306,11 +333,20 @@ def add_exercise_to_session(db: Session, session_id: int, user_id: int, data: Wo
             detail=f"Exercise with ID {data.exercise_id} not found"
         )
     
+    # Auto-calculate position if not provided
+    position = data.position
+    if position is None or position == 0:
+        # Get the max position and add 1
+        max_position = db.query(WorkoutExercise.position).filter(
+            WorkoutExercise.workout_session_id == session_id
+        ).order_by(WorkoutExercise.position.desc()).first()
+        position = (max_position[0] + 1) if max_position and max_position[0] else 1
+    
     # Create workout exercise
     workout_ex = WorkoutExercise(
         workout_session_id=session_id,
         exercise_id=data.exercise_id,
-        position=data.position,
+        position=position,
         notes=data.notes,
     )
     
@@ -436,19 +472,39 @@ def add_set_to_exercise(db: Session, workout_exercise_id: int, user_id: int, dat
             detail="Cannot modify a completed or cancelled workout"
         )
     
+    # Auto-calculate set_number if not provided or is 0
+    set_number = data.set_number
+    if set_number is None or set_number == 0:
+        # Get the max set_number for this exercise and add 1
+        max_set = db.query(WorkoutSet.set_number).filter(
+            WorkoutSet.workout_exercise_id == workout_exercise_id
+        ).order_by(WorkoutSet.set_number.desc()).first()
+        set_number = (max_set[0] + 1) if max_set and max_set[0] else 1
+    
     workout_set = WorkoutSet(
         workout_exercise_id=workout_exercise_id,
-        set_number=data.set_number,
+        set_number=set_number,
         weight=data.weight,
         reps=data.reps,
         duration_seconds=data.duration_seconds,
         distance=data.distance,
         rpe=data.rpe,
         notes=data.notes,
+        is_completed=data.is_completed,  # Track completion status
         is_warmup=data.is_warmup,
         is_dropset=data.is_dropset,
         is_failure=data.is_failure,
     )
+    
+    # If marked as completed and has valid data, set completed_at timestamp
+    if data.is_completed:
+        has_valid_data = (
+            (data.weight is not None and data.reps is not None) or
+            (data.duration_seconds is not None) or
+            (data.distance is not None)
+        )
+        if has_valid_data:
+            workout_set.completed_at = datetime.now(timezone.utc)
     
     db.add(workout_set)
     db.commit()
@@ -495,6 +551,28 @@ def update_set(db: Session, set_id: int, user_id: int, data: WorkoutSetUpdate) -
         workout_set.rpe = data.rpe
     if data.notes is not None:
         workout_set.notes = data.notes
+    
+    # Handle completion tracking
+    # If marking as completed for the first time, validate and set timestamp
+    if data.is_completed and not workout_set.is_completed:
+        has_valid_data = (
+            (workout_set.weight is not None and workout_set.reps is not None) or
+            (workout_set.duration_seconds is not None) or
+            (workout_set.distance is not None)
+        )
+        if has_valid_data:
+            workout_set.is_completed = True
+            workout_set.completed_at = datetime.now(timezone.utc)
+        else:
+            # Cannot mark as complete without valid data
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot complete set without weight+reps, duration, or distance"
+            )
+    elif not data.is_completed and workout_set.is_completed:
+        # Allow un-completing a set (edge case)
+        workout_set.is_completed = False
+        workout_set.completed_at = None
     
     workout_set.is_warmup = data.is_warmup
     workout_set.is_dropset = data.is_dropset

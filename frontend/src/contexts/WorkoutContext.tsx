@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { STORAGE_KEYS } from '../core/constants/AppConstants';
+import { workoutDraftStorage, storageAdapter } from '../infrastructure/storage/LocalStorageAdapter';
 
 interface WorkoutSet {
   reps: string;
@@ -35,33 +37,23 @@ interface WorkoutContextType {
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'activeWorkout';
-
 export const WorkoutProvider = ({ children }: { children: ReactNode }) => {
   const [activeWorkout, setActiveWorkout] = useState<WorkoutState | null>(() => {
     // Load from localStorage on mount
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return null;
-      }
-    }
-    return null;
+    return workoutDraftStorage.getDraft();
   });
 
   // Persist to localStorage whenever activeWorkout changes
   useEffect(() => {
     if (activeWorkout) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(activeWorkout));
+      workoutDraftStorage.saveDraft(activeWorkout);
     } else {
-      localStorage.removeItem(STORAGE_KEY);
+      workoutDraftStorage.clearDraft();
     }
   }, [activeWorkout]);
 
   const startWorkout = (initialExercises: Exercise[] = []) => {
-    const count = parseInt(localStorage.getItem('workoutCount') || '0');
+    const count = storageAdapter.get<number>(STORAGE_KEYS.WORKOUT_COUNT) || 0;
     const workoutNum = count + 1;
     
     setActiveWorkout({

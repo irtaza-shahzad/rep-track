@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import Base, engine
 from app.api.routers import user_router, auth_router, exercise_router, template_router, workout_router
 from app.core.open_api import custom_openapi 
@@ -18,6 +19,15 @@ from app.models.workout_set_model import WorkoutSet
 
 app = FastAPI(title="Workout Tracker API")
 app.openapi = lambda: custom_openapi(app)
+
+# Add CORS middleware for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080", "http://localhost:5173"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Register routers
 app.include_router(auth_router.router)
