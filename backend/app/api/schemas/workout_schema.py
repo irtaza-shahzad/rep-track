@@ -1,182 +1,187 @@
 # app/api/schemas/workout_schema.py
+"""
+Pydantic schemas for live workout functionality.
+Designed to match frontend's data structures and workflow.
+"""
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
-from enum import Enum
-
-
-class WorkoutStatus(str, Enum):
-    ACTIVE = "active"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
 
 
 # ============ WorkoutSet Schemas ============
 
 class WorkoutSetBase(BaseModel):
-    weight: Optional[float] = Field(None, description="Weight in kg or lbs")
-    reps: Optional[int] = Field(None, description="Number of repetitions")
-    duration_seconds: Optional[int] = Field(None, description="Duration for time-based exercises")
-    distance: Optional[float] = Field(None, description="Distance for cardio exercises")
+    """Base set fields - matches frontend WorkoutSet interface"""
+    reps: str = Field(default='', description="Reps as string for flexibility ('10', '8-10', etc.)")
+    weight: str = Field(default='', description="Weight as string ('135.5', '100', etc.)")
     rpe: Optional[int] = Field(None, ge=1, le=10, description="Rate of Perceived Exertion (1-10)")
-    notes: Optional[str] = Field(None, max_length=500, description="Notes for this set")
-    is_completed: bool = Field(False, description="Whether this set is completed (required to count toward totals)")
-    is_warmup: bool = Field(False, description="Whether this is a warmup set")
-    is_dropset: bool = Field(False, description="Whether this is a dropset")
-    is_failure: bool = Field(False, description="Whether this set was taken to failure")
+    completed: bool = Field(False, description="Whether set is completed")
+    is_warmup: bool = Field(False, description="Warmup set flag")
+    is_dropset: bool = Field(False, description="Dropset flag")
+    is_failure: bool = Field(False, description="Taken to failure flag")
 
 
 class WorkoutSetCreate(WorkoutSetBase):
-    set_number: Optional[int] = Field(None, ge=1, description="Set number within the exercise (auto-calculated if not provided)")
+    """Schema for adding a new set to an exercise"""
+    pass
 
 
-class WorkoutSetUpdate(WorkoutSetBase):
-    set_number: Optional[int] = Field(None, ge=1, description="Set number within the exercise")
+class WorkoutSetUpdate(BaseModel):
+    """Schema for updating a set - all fields optional"""
+    reps: Optional[str] = None
+    weight: Optional[str] = None
+    rpe: Optional[int] = Field(None, ge=1, le=10)
+    completed: Optional[bool] = None
+    is_warmup: Optional[bool] = None
+    is_dropset: Optional[bool] = None
+    is_failure: Optional[bool] = None
 
 
 class WorkoutSetResponse(WorkoutSetBase):
+    """Full set response with ID and metadata"""
     id: int
-    workout_exercise_id: int
-    set_number: int
-    completed_at: Optional[datetime] = Field(None, description="When the set was marked complete")
-
-    model_config = {"from_attributes": True}
-
-
-# ============ WorkoutExercise Schemas ============
-
-class WorkoutExerciseBase(BaseModel):
-    exercise_id: int = Field(..., description="ID of the exercise")
-    position: int = Field(0, description="Order within the workout")
-    notes: Optional[str] = Field(None, description="Notes for this exercise")
-
-
-class WorkoutExerciseCreate(WorkoutExerciseBase):
-    """Schema for adding an exercise to an active workout"""
-    pass
-
-
-class WorkoutExerciseUpdate(BaseModel):
-    """Schema for updating an exercise in an active workout"""
-    position: Optional[int] = Field(None, description="New position/order")
-    notes: Optional[str] = Field(None, description="Updated notes")
-
-
-class WorkoutExerciseResponse(WorkoutExerciseBase):
-    id: int
-    workout_session_id: int
-    exercise_name: Optional[str] = Field(None, description="Name of the exercise (from relationship)")
-    workout_sets: List[WorkoutSetResponse] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
+    position: int
+    completed_at: Optional[int] = Field(None, description="Epoch ms when completed")
     
-    @classmethod
-    def model_validate(cls, obj, **kwargs):
-        """Override to populate exercise_name from relationship"""
-        if hasattr(obj, 'exercise') and obj.exercise:
-            obj.exercise_name = obj.exercise.name
-        else:
-            obj.exercise_name = None
-        return super().model_validate(obj, **kwargs)
-
-
-# ============ WorkoutSession Schemas ============
-
-class WorkoutSessionStart(BaseModel):
-    """Schema for starting a new workout session"""
-    template_id: Optional[int] = Field(None, description="Optional template ID to load")
-    name: Optional[str] = Field(None, max_length=200, description="Optional workout name")
-    notes: Optional[str] = Field(None, description="Optional workout notes")
-
-
-class WorkoutSessionUpdate(BaseModel):
-    """Schema for updating active workout metadata"""
-    name: Optional[str] = Field(None, max_length=200, description="Updated workout name")
-    notes: Optional[str] = Field(None, description="Updated workout notes")
-
-
-class WorkoutSessionFinish(BaseModel):
-    """Schema for finishing a workout - no required fields"""
-    pass
-
-
-class WorkoutSessionResponse(BaseModel):
-    id: int
-    user_id: int
-    template_id: Optional[int] = None
-    status: WorkoutStatus
-    start_time: datetime
-    end_time: Optional[datetime] = None
-    duration_seconds: Optional[int] = None
-    name: Optional[str] = None
-    notes: Optional[str] = None
-    total_volume: Optional[float] = None
-    total_sets: Optional[int] = None
-    total_reps: Optional[int] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    workout_exercises: List[WorkoutExerciseResponse] = Field(default_factory=list)
-
     model_config = {"from_attributes": True}
 
 
-class WorkoutSessionSummary(BaseModel):
-    """Summary response when finishing a workout"""
+# ============ Exercise Schemas ============
+
+class ExerciseInWorkout(BaseModel):
+    """
+    Exercise within a workout - matches frontend Exercise interface.
+    Frontend uses { id, name, sets[] }
+    """
     id: int
-    user_id: int
-    status: WorkoutStatus
-    start_time: datetime
-    end_time: datetime
-    duration_seconds: int
-    name: Optional[str] = None
+    name: str = Field(..., description="Exercise name")
+    sets: List[WorkoutSetResponse] = Field(default_factory=list)
+    notes: Optional[str] = None
+    
+    model_config = {"from_attributes": True}
+
+
+class AddExerciseRequest(BaseModel):
+    """Request to add an exercise to active workout"""
+    exercise_name: str = Field(..., description="Name of exercise to add")
+
+
+class ReorderExercisesRequest(BaseModel):
+    """Request to reorder exercises in workout"""
+    exercise_ids: List[int] = Field(..., description="Ordered list of workout_exercise IDs")
+
+
+# ============ Active Workout Schemas ============
+
+class StartWorkoutRequest(BaseModel):
+    """
+    Request to start a new workout.
+    Can be empty or from a template.
+    """
+    template_id: Optional[int] = Field(None, description="Template ID to start from (null for empty workout)")
+    workout_name: Optional[str] = Field(None, max_length=200, description="Optional workout name")
+
+
+class UpdateWorkoutRequest(BaseModel):
+    """
+    Request to update active workout metadata or state.
+    All fields optional - only update what's provided.
+    """
+    workout_name: Optional[str] = Field(None, max_length=200)
+    elapsed_seconds: Optional[int] = Field(None, ge=0, description="Total elapsed seconds")
+    is_paused: Optional[bool] = Field(None, description="Timer pause state")
+    notes: Optional[str] = None
+
+
+class ActiveWorkoutResponse(BaseModel):
+    """
+    Full active workout response - matches frontend WorkoutState interface.
+    Frontend expects: { exercises, elapsedSeconds, isPaused, workoutNumber, workoutName, startTime }
+    """
+    id: int
+    workout_number: int
+    workout_name: Optional[str]
+    start_time: int = Field(..., description="Epoch milliseconds")
+    elapsed_seconds: int = Field(..., description="Total elapsed seconds")
+    is_paused: bool
+    is_active: bool
+    exercises: List[ExerciseInWorkout] = Field(default_factory=list)
+    notes: Optional[str] = None
+    template_id: Optional[int] = None
+    
+    # Computed fields for floating indicator
+    total_exercises: int = Field(0, description="Count of exercises")
+    completed_sets: int = Field(0, description="Count of completed sets")
+    
+    model_config = {"from_attributes": True}
+
+
+class FinishWorkoutRequest(BaseModel):
+    """
+    Request to finish workout.
+    Final name can be provided here.
+    """
+    workout_name: Optional[str] = Field(None, max_length=200, description="Final workout name")
+
+
+class CompletedWorkoutResponse(BaseModel):
+    """Response after finishing a workout with computed analytics"""
+    id: int
+    workout_number: int
+    workout_name: str
+    start_time: int
+    end_time: int
+    elapsed_seconds: int
     total_volume: float
     total_sets: int
     total_reps: int
     exercises_count: int
-    workout_exercises: List[WorkoutExerciseResponse] = Field(default_factory=list)
-
+    exercises: List[ExerciseInWorkout]
+    
     model_config = {"from_attributes": True}
 
 
-# ============ Bulk Operations ============
+# ============ Workout History Schemas ============
 
-class AddExerciseToWorkout(BaseModel):
-    """Schema for adding an exercise to an active workout"""
-    exercise_id: int = Field(..., description="ID of the exercise to add")
-    position: Optional[int] = Field(None, description="Position in the workout (optional, will append if not provided)")
-    notes: Optional[str] = Field(None, description="Notes for this exercise")
-
-
-class AddSetToExercise(BaseModel):
-    """Schema for adding a set to an exercise in an active workout"""
-    workout_exercise_id: int = Field(..., description="ID of the workout exercise")
-    set_number: int = Field(..., ge=1, description="Set number")
-    weight: Optional[float] = None
-    reps: Optional[int] = None
-    duration_seconds: Optional[int] = None
-    distance: Optional[float] = None
-    rpe: Optional[int] = Field(None, ge=1, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-    is_warmup: bool = False
-    is_dropset: bool = False
-    is_failure: bool = False
-
-
-class ReorderExercises(BaseModel):
-    """Schema for reordering exercises in a workout"""
-    exercise_positions: List[dict] = Field(
-        ..., 
-        description="List of {workout_exercise_id: int, position: int} mappings"
-    )
+class WorkoutHistorySummary(BaseModel):
+    """Summary view of a completed workout for history list"""
+    id: int
+    workout_number: int
+    workout_name: str
+    start_time: int = Field(..., description="Epoch ms")
+    elapsed_seconds: int = Field(..., description="Duration in seconds")
+    total_volume: Optional[float] = None
+    total_sets: Optional[int] = None
+    exercises_count: Optional[int] = None
     
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "exercise_positions": [
-                    {"workout_exercise_id": 1, "position": 1},
-                    {"workout_exercise_id": 2, "position": 2},
-                    {"workout_exercise_id": 3, "position": 3}
-                ]
-            }
-        }
-    }
+    model_config = {"from_attributes": True}
+
+
+class WorkoutHistoryDetail(BaseModel):
+    """Full workout details including all exercises and sets"""
+    id: int
+    workout_number: int
+    workout_name: str
+    start_time: int
+    end_time: Optional[int]
+    elapsed_seconds: int
+    total_volume: Optional[float]
+    total_sets: Optional[int]
+    total_reps: Optional[int]
+    exercises_count: Optional[int]
+    notes: Optional[str]
+    exercises: List[ExerciseInWorkout]
+    template_id: Optional[int]
+    
+    model_config = {"from_attributes": True}
+
+
+# ============ Stats Schemas ============
+
+class WorkoutStatsResponse(BaseModel):
+    """User's workout statistics"""
+    total_workouts: int = Field(..., description="Total completed workouts")
+    current_streak: int = Field(..., description="Current streak in days")
+    total_volume: float = Field(..., description="Lifetime total volume")
+    total_sets: int = Field(..., description="Lifetime total sets")
+    
+    model_config = {"from_attributes": True}

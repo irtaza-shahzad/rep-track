@@ -25,17 +25,13 @@ export interface AuthResponse {
 export const authService = {
     // Login
     login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-        console.log('Login request:', { ...credentials, password: '***' });
-
         const response = await api.post('/api/auth/login', {
             email: credentials.email,
             password: credentials.password
         });
-        console.log('Login response:', response.data);
 
         // Extract data from the APIResponse wrapper
         const responseData = response.data.data || response.data;
-        console.log('Extracted response data:', responseData);
 
         // Store token and user data using storage adapter
         authStorage.setToken(responseData.access_token);
@@ -46,14 +42,10 @@ export const authService = {
 
     // Register
     register: async (data: RegisterRequest): Promise<AuthResponse> => {
-        console.log('Register request:', { ...data, password: '***' });
-
         const response = await api.post('/api/auth/signup', data);
-        console.log('Register response:', response.data);
 
         // Extract data from the APIResponse wrapper
         const responseData = response.data.data || response.data;
-        console.log('Extracted response data:', responseData);
 
         // DO NOT store token/user - user needs to login after registration
         // This ensures proper authentication flow
@@ -63,7 +55,13 @@ export const authService = {
 
     // Logout
     logout: () => {
+        // Clear all user-specific data from localStorage
+        // This includes: auth token, user data, workout drafts, preferences,
+        // streak configs, and all cached API data
         authStorage.clearAuth();
+
+        // Note: WorkoutContext will automatically clear when the app re-renders
+        // after navigation to login, as it loads from localStorage (now empty)
     },
 
     // Get current user

@@ -17,7 +17,7 @@ export interface WorkoutSet {
 }
 
 export interface Exercise {
-    id: string;            // local identifier
+    id: string | number;   // string for local, number for backend
     name: string;          // exercise name
     sets: WorkoutSet[];
 }
@@ -33,8 +33,12 @@ export interface WorkoutState {
 }
 
 export interface StartWorkoutRequest {
-    template_id?: number;   // optional template to start from
+    template_id?: number | null;   // optional template to start from
     workout_name?: string;  // optional name
+}
+
+export interface StartWorkoutResponse {
+    workout: WorkoutState;
 }
 
 export interface UpdateWorkoutRequest {
@@ -54,8 +58,15 @@ export interface FinishWorkoutResponse {
 }
 
 export interface ExerciseCreateRequest {
-    exercise_id: number;
-    position?: number;
+    exercise_name: string;
+    notes?: string | null;
+}
+
+export interface ExerciseResponse {
+    id: number;
+    name: string;
+    sets: any[];
+    notes: string | null;
 }
 
 export interface SetCreateRequest {
@@ -63,27 +74,37 @@ export interface SetCreateRequest {
     weight?: string;
     rpe?: number;
     completed?: boolean;
-    isWarmup?: boolean;
-    isDropset?: boolean;
-    isFailure?: boolean;
+    is_warmup?: boolean;
+    is_dropset?: boolean;
+    is_failure?: boolean;
 }
 
-const BASE_URL = '/api/live-workout';
+const BASE_URL = '/api/workouts';
 
 /**
  * Start a new workout session
  */
 export async function startWorkout(data: StartWorkoutRequest): Promise<WorkoutState> {
-    const response = await api.post(`${BASE_URL}/start`, data);
-    return response.data.data;
+    const response = await api.post(`${BASE_URL}/active`, data);
+    return response.data;
 }
 
 /**
  * Get the currently active workout
  */
 export async function getActiveWorkout(): Promise<WorkoutState | null> {
-    const response = await api.get(`${BASE_URL}/active`);
-    return response.data.data;
+    try {
+        const response = await api.get(`${BASE_URL}/active`);
+        return response.data;
+    } catch (error: any) {
+        // If 404, no active workout exists - this is expected
+        if (error.response?.status === 404) {
+            return null;
+        }
+        // Log other errors (not 404)
+        console.error('Unexpected error fetching active workout:', error);
+        throw error;
+    }
 }
 
 /**
@@ -91,7 +112,7 @@ export async function getActiveWorkout(): Promise<WorkoutState | null> {
  */
 export async function getWorkoutById(workoutId: number): Promise<WorkoutState> {
     const response = await api.get(`${BASE_URL}/${workoutId}`);
-    return response.data.data;
+    return response.data;
 }
 
 /**
@@ -102,22 +123,22 @@ export async function updateWorkout(
     data: UpdateWorkoutRequest
 ): Promise<WorkoutState> {
     const response = await api.put(`${BASE_URL}/${workoutId}`, data);
-    return response.data.data;
+    return response.data;
 }
 
 /**
  * Finish an active workout
  */
-export async function finishWorkout(workoutId: number): Promise<FinishWorkoutResponse> {
-    const response = await api.post(`${BASE_URL}/${workoutId}/finish`);
-    return response.data.data;
+export async function finishWorkout(data?: { workout_name?: string }): Promise<FinishWorkoutResponse> {
+    const response = await api.post(`${BASE_URL}/active/finish`, data || {});
+    return response.data;
 }
 
 /**
  * Cancel/delete an active workout
  */
-export async function cancelWorkout(workoutId: number): Promise<void> {
-    await api.delete(`${BASE_URL}/${workoutId}`);
+export async function cancelWorkout(): Promise<void> {
+    await api.post(`${BASE_URL}/active/cancel`);
 }
 
 /**
@@ -126,9 +147,9 @@ export async function cancelWorkout(workoutId: number): Promise<void> {
 export async function addExercise(
     workoutId: number,
     data: ExerciseCreateRequest
-): Promise<Exercise> {
-    const response = await api.post(`${BASE_URL}/${workoutId}/exercises`, data);
-    return response.data.data;
+): Promise<ExerciseResponse> {
+    const response = await api.post(`${BASE_URL}/active/exercises`, data);
+    return response.data;
 }
 
 /**
@@ -146,18 +167,18 @@ export async function reorderExercises(
     exerciseIds: number[]
 ): Promise<WorkoutState> {
     const response = await api.put(`${BASE_URL}/${workoutId}/exercises/reorder`, exerciseIds);
-    return response.data.data;
+    return response.data;
 }
 
 /**
  * Add a set to an exercise
  */
 export async function addSet(
-    workoutExerciseId: number,
+    exerciseId: number,
     data: SetCreateRequest
 ): Promise<WorkoutSet> {
-    const response = await api.post(`${BASE_URL}/exercises/${workoutExerciseId}/sets`, data);
-    return response.data.data;
+    const response = await api.post(`${BASE_URL}/active/exercises/${exerciseId}/sets`, data);
+    return response.data;
 }
 
 /**
@@ -168,7 +189,7 @@ export async function updateSet(
     data: SetCreateRequest
 ): Promise<WorkoutSet> {
     const response = await api.put(`${BASE_URL}/sets/${setId}`, data);
-    return response.data.data;
+    return response.data;
 }
 
 /**

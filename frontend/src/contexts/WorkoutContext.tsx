@@ -2,6 +2,10 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { STORAGE_KEYS } from '../core/constants/AppConstants';
 import { workoutDraftStorage, storageAdapter } from '../infrastructure/storage/LocalStorageAdapter';
 
+// @refresh reset
+// This file exports both a Provider component and a custom hook,
+// which is a valid pattern for React Context
+
 interface WorkoutSet {
   reps: string;
   weight: string;
@@ -53,8 +57,8 @@ export const WorkoutProvider = ({ children }: { children: ReactNode }) => {
   }, [activeWorkout]);
 
   const startWorkout = (initialExercises: Exercise[] = []) => {
-    const count = storageAdapter.get<number>(STORAGE_KEYS.WORKOUT_COUNT) || 0;
-    const workoutNum = count + 1;
+    const count = storageAdapter.get<number>(STORAGE_KEYS.WORKOUT_COUNT);
+    const workoutNum = (count && typeof count === 'number' ? count : 0) + 1;
     
     setActiveWorkout({
       exercises: initialExercises,
@@ -93,10 +97,11 @@ export const WorkoutProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useWorkout = () => {
+// Export hook separately for Fast Refresh compatibility
+export function useWorkout() {
   const context = useContext(WorkoutContext);
   if (context === undefined) {
     throw new Error('useWorkout must be used within a WorkoutProvider');
   }
   return context;
-};
+}

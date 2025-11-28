@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { usePreferences } from '@/contexts/PreferencesContext';
+import { useWorkout } from '@/contexts/WorkoutContext';
 import { authService } from '@/services/authService';
 
 const Settings = () => {
@@ -26,9 +27,19 @@ const Settings = () => {
   const { toast } = useToast();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const { preferences, updateWeightUnit, updateDistanceUnit, updateTimeFormat } = usePreferences();
+  const { endWorkout } = useWorkout();
+  
+  // Get current user info
+  const currentUser = authService.getCurrentUser();
 
   const handleLogout = () => {
+    // Clear workout context before logout
+    endWorkout();
+    
+    // Clear all user data (auth, drafts, cache, preferences)
     authService.logout();
+    
+    // Navigate to login
     navigate('/');
   };
 
@@ -59,7 +70,7 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div>
                 <Label className="text-sm text-muted-foreground">Email</Label>
-                <p className="font-medium mt-1">user@example.com</p>
+                <p className="font-medium mt-1">{currentUser?.email || 'Not logged in'}</p>
               </div>
             </CardContent>
           </Card>
