@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.core.database import Base, engine
-from app.api.routers import user_router, auth_router, exercise_router, template_router, streak_router, reminder_router, workout_router
+from app.api.routers import user_router, auth_router, exercise_router, template_router, streak_router, reminder_router, workout_router, export_router
 from app.core.open_api import custom_openapi 
 
 # Import models so SQLAlchemy registers them
@@ -26,3 +26,4 @@ app.include_router(template_router.router)
 app.include_router(streak_router.router)
 app.include_router(reminder_router.router)
 app.include_router(workout_router.router)
+app.include_router(export_router.router)

@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import Layout from '@/components/Layout';
+import ExportDialog from '@/components/ExportDialog';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   const { preferences, updateWeightUnit, updateDistanceUnit, updateTimeFormat } = usePreferences();
 
   const handleLogout = () => {
@@ -209,7 +211,7 @@ const Settings = () => {
               <Button 
                 variant="outline" 
                 className="w-full justify-start rounded-xl h-auto py-3"
-                onClick={() => toast({ title: "Export Started", description: "Your workout data is being prepared for download." })}
+                onClick={() => setShowExportDialog(true)}
               >
                 <Download className="h-4 w-4 mr-3" />
                 <div className="text-left">
@@ -295,6 +297,9 @@ const Settings = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Export Dialog */}
+        <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} />
         </div>
       </div>
     </Layout>
