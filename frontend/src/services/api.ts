@@ -29,11 +29,27 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Suppress 404 errors from console (handled gracefully in service layer)
+        if (error.response?.status === 404) {
+            return Promise.reject(error);
+        }
+
         if (error.response?.status === 401) {
-            // Token expired or invalid
-            localStorage.removeItem('fittrack_token');
-            localStorage.removeItem('fittrack_user');
-            window.location.href = '/';
+            // Only redirect to landing page if this is NOT a login/signup request
+            // Login/signup 401s should be handled by the Login component
+            const isAuthEndpoint = error.config?.url?.includes('/api/auth/login') ||
+                error.config?.url?.includes('/api/auth/signup');
+
+            if (!isAuthEndpoint) {
+                // Token expired or invalid on protected route
+                authStorage.clearAuth();
+                window.location.href = '/';
+            }
+        }
+
+        // Log other errors to console (except 404s which are suppressed above)
+        if (error.response?.status !== 404) {
+            console.error('API Error:', error);
         }
         return Promise.reject(error);
     }

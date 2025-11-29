@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { preferencesStorage } from '../infrastructure/storage/LocalStorageAdapter';
 
+// @refresh reset
+// This file exports both a Provider component and a custom hook,
+// which is a valid pattern for React Context
+
 export type WeightUnit = 'lbs' | 'kg';
 export type DistanceUnit = 'miles' | 'km';
 export type TimeFormat = '12h' | '24h';
@@ -109,10 +113,11 @@ export const PreferencesProvider: React.FC<{ children: ReactNode }> = ({ childre
   );
 };
 
-export const usePreferences = () => {
+// Export hook separately for Fast Refresh compatibility
+export function usePreferences() {
   const context = useContext(PreferencesContext);
   if (!context) {
     throw new Error('usePreferences must be used within PreferencesProvider');
   }
   return context;
-};
+}

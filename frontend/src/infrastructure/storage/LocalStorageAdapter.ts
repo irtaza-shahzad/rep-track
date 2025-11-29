@@ -24,7 +24,7 @@ export interface IStorage {
 export class LocalStorageAdapter implements IStorage {
   private static instance: LocalStorageAdapter;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): LocalStorageAdapter {
     if (!LocalStorageAdapter.instance) {
@@ -39,7 +39,7 @@ export class LocalStorageAdapter implements IStorage {
   get<T>(key: string): T | null {
     try {
       const item = localStorage.getItem(key);
-      if (!item) return null;
+      if (!item || item === 'undefined' || item === 'null') return null;
       return JSON.parse(item) as T;
     } catch (error) {
       console.error(`Error reading from localStorage for key: ${key}`, error);
@@ -77,6 +77,31 @@ export class LocalStorageAdapter implements IStorage {
       localStorage.clear();
     } catch (error) {
       console.error('Error clearing localStorage', error);
+    }
+  }
+
+  /**
+   * Clear all user-specific data (used on logout)
+   * This prevents data leakage between different user sessions
+   */
+  clearAllUserData(): void {
+    try {
+      // Clear all FitTrack-related keys
+      Object.values(STORAGE_KEYS).forEach(key => {
+        this.remove(key);
+      });
+
+      // Clear any cached workout history/details
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('workout_history_') ||
+          key.startsWith('WORKOUT_DETAILS') ||
+          key.startsWith('workout_stats_')) {
+          this.remove(key);
+        }
+      });
+    } catch (error) {
+      console.error('Error clearing user data from localStorage', error);
     }
   }
 
@@ -130,8 +155,9 @@ export class AuthStorage {
   }
 
   clearAuth(): void {
-    this.removeToken();
-    this.removeUser();
+    // Use the comprehensive clearAllUserData method
+    // This clears auth, workout drafts, preferences, streaks, and all cached data
+    storageAdapter.clearAllUserData();
   }
 
   isAuthenticated(): boolean {

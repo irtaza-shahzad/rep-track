@@ -10,12 +10,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { saveWorkout, formatWorkoutDate } from '@/lib/workoutStorage';
 import { updateStreakOnWorkout } from '@/lib/streakStorage';
+import { invalidateWorkoutCache } from '@/services/workoutHistoryService';
+import { statsService } from '@/services/statsService';
+import * as liveWorkoutService from '@/services/liveWorkoutService';
 import PageHeader from '@/components/PageHeader';
 import { useWorkout } from '@/contexts/WorkoutContext';
+import { usePreferences } from '@/contexts/PreferencesContext';
 import ExerciseSelector from '@/components/ExerciseSelector';
 import type { Exercise as ExerciseSelectorType } from '@/components/ExerciseSelector';
 import { STORAGE_KEYS } from '@/core/constants/AppConstants';
 import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
+import { exerciseService } from '@/services/exerciseService';
 
 interface Exercise {
   id: string;
@@ -37,6 +42,7 @@ const Workout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { preferences, convertWeight } = usePreferences();
   const { activeWorkout, startWorkout, updateWorkout, endWorkout } = useWorkout();
   
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -58,35 +64,164 @@ const Workout = () => {
   
   // Workout summary state
   const [showSummary, setShowSummary] = useState(false);
+  const [summaryMessage, setSummaryMessage] = useState<string>('');
   const [workoutNumber, setWorkoutNumber] = useState(1);
   const [workoutName, setWorkoutName] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Exercise library state
+  const [allExercises, setAllExercises] = useState<ExerciseSelectorType[]>([]);
+  const [exercisesLoading, setExercisesLoading] = useState(true);
+
+  // Load exercises from API
+  useEffect(() => {
+    const loadExercises = async () => {
+      try {
+        setExercisesLoading(true);
+        const apiExercises = await exerciseService.getAllExercises();
+        
+        // Transform API data to match ExerciseSelector format
+        const transformed = apiExercises.map(ex => ({
+          id: String(ex.id),
+          name: ex.name,
+          category: ex.category,
+          muscleGroup: ex.muscle_group.replace(' ', ''), // "Full Body" -> "FullBody"
+          difficulty: ex.difficulty
+        }));
+        
+        setAllExercises(transformed);
+      } catch (error) {
+        console.error('Failed to load exercises:', error);
+        toast({
+          title: "Error Loading Exercises",
+          description: "Failed to load exercise library. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setExercisesLoading(false);
+      }
+    };
+    
+    loadExercises();
+  }, []);
 
   // Load active workout from context or start new one
   useEffect(() => {
-    if (activeWorkout) {
-      // Resume existing workout
-      setExercises(activeWorkout.exercises);
-      setElapsedSeconds(activeWorkout.elapsedSeconds);
-      setIsPaused(activeWorkout.isPaused);
-      setWorkoutNumber(activeWorkout.workoutNumber);
-      setWorkoutName(activeWorkout.workoutName);
-    } else {
-      // Start new workout
+    const initializeWorkout = async () => {
+      setIsInitializing(true);
+      
+      const clearDraft = location.state?.clearDraft;
       const template = location.state?.template;
-      let initialExercises: Exercise[] = [];
       
-      if (template && template.exercises) {
-        initialExercises = template.exercises.map((name: string, idx: number) => ({
-          id: `${Date.now()}-${idx}`,
-          name,
-          sets: [{ reps: '', weight: '', completed: false }],
-        }));
+      // Only resume if there's an active workout AND we're not explicitly starting a new one
+      if (activeWorkout && !clearDraft) {
+        // Resume existing workout
+        setExercises(activeWorkout.exercises);
+        // Calculate elapsed time from start time instead of using stored value
+        const now = Date.now();
+        const calculatedTime = Math.floor((now - activeWorkout.startTime) / 1000);
+        setElapsedSeconds(calculatedTime);
+        setIsPaused(activeWorkout.isPaused);
+        setWorkoutNumber(activeWorkout.workoutNumber);
+        setWorkoutName(activeWorkout.workoutName);
+        setIsInitializing(false);
+      } else {
+        // Start new workout
+        let initialExercises: Exercise[] = [];
+        
+        try {
+          // Check if there's an active workout in the backend
+          const backendWorkout = await liveWorkoutService.getActiveWorkout();
+          
+          // If we're coming with a fresh template, cancel any existing workout and start fresh
+          if (template && backendWorkout) {
+            console.log('Cancelling existing workout to start from template');
+            await liveWorkoutService.cancelWorkout();
+          }
+          
+          if (backendWorkout && !template) {
+            // Resume from backend (only if not starting from template)
+            // Convert backend exercises to frontend format
+            const resumedExercises: Exercise[] = backendWorkout.exercises.map((ex) => ({
+              id: String(ex.id), // Convert to string for frontend
+              name: ex.name,
+              sets: ex.sets.map((s: any) => ({
+                reps: s.reps || '',
+                weight: s.weight || '',
+                rpe: s.rpe,
+                completed: s.completed || false,
+                isWarmup: s.is_warmup || false,
+                isDropset: s.is_dropset || false,
+                isFailure: s.is_failure || false,
+              }))
+            }));
+            
+            setExercises(resumedExercises);
+            // Calculate elapsed time from backend startTime instead of using stored value
+            const now = Date.now();
+            const backendStartTime = backendWorkout.startTime ? new Date(backendWorkout.startTime).getTime() : Date.now();
+            const calculatedTime = Math.floor((now - backendStartTime) / 1000);
+            setElapsedSeconds(calculatedTime);
+            setIsPaused(backendWorkout.isPaused || false);
+            setWorkoutNumber(backendWorkout.workoutNumber);
+            setWorkoutName(backendWorkout.workoutName || '');
+            
+            // Update context
+            startWorkout(resumedExercises);
+          } else {
+            // No backend workout, or starting from template - start fresh
+            console.log('Starting workout with template:', template);
+            
+            // Create workout in backend
+            const newWorkout = await liveWorkoutService.startWorkout({
+              workout_name: template?.name || '', // Use template name if starting from template
+              template_id: null
+            });
+            
+            // If starting from a template, add exercises to backend (in parallel for speed)
+            if (template && template.exercises && template.exercises.length > 0) {
+              console.log('Adding template exercises:', template.exercises);
+              // Add all exercises in parallel to eliminate loading delay
+              const exercisePromises = template.exercises.map((exerciseName: string) => 
+                liveWorkoutService.addExercise(newWorkout.id, {
+                  exercise_name: exerciseName,
+                  notes: null
+                })
+              );
+              
+              const exerciseResponses = await Promise.all(exercisePromises);
+              console.log('Exercise responses:', exerciseResponses);
+              
+              // Create frontend exercises with backend IDs
+              initialExercises = exerciseResponses.map((exerciseResponse) => ({
+                id: String(exerciseResponse.id),
+                name: exerciseResponse.name,
+                sets: [{ reps: '', weight: '', completed: false }],
+              }));
+            }
+            
+            setExercises(initialExercises);
+            setWorkoutNumber(newWorkout.workoutNumber);
+            setWorkoutName(newWorkout.workoutName || '');
+            
+            // Update context
+            startWorkout(initialExercises);
+          }
+        } catch (error) {
+          console.error('Failed to initialize workout:', error);
+          toast({
+            title: "Error",
+            description: "Failed to start workout. Please try again.",
+            variant: "destructive"
+          });
+          navigate('/dashboard');
+        } finally {
+          setIsInitializing(false);
+        }
       }
-      
-      startWorkout(initialExercises);
-      // Set exercises immediately after starting workout
-      setExercises(initialExercises);
-    }
+    };
+    
+    initializeWorkout();
   }, []);
 
   // Save workout state to context whenever it changes
@@ -94,86 +229,18 @@ const Workout = () => {
     if (activeWorkout && exercises.length > 0) {
       updateWorkout({
         exercises,
-        elapsedSeconds,
+        elapsedSeconds: 0, // Don't store elapsed time - always calculate from startTime
         isPaused,
         workoutNumber,
         workoutName,
         startTime: activeWorkout.startTime,
       });
     }
-  }, [exercises, elapsedSeconds, isPaused, workoutNumber, workoutName]);
+  }, [exercises, isPaused, workoutNumber, workoutName]);
 
   const popularExercises = [
     'Bench Press', 'Squat', 'Deadlift', 'Overhead Press',
     'Pull-ups', 'Rows', 'Bicep Curls', 'Tricep Extensions'
-  ];
-
-  // Full exercise library for selection
-  const allExercises: ExerciseSelectorType[] = [
-    // Chest
-    { id: '1', name: 'Barbell Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate' },
-    { id: '2', name: 'Incline Barbell Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate' },
-    { id: '3', name: 'Flat Dumbbell Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '4', name: 'Incline Dumbbell Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '5', name: 'Decline Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate' },
-    { id: '6', name: 'Chest Dips', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Advanced' },
-    { id: '7', name: 'Cable Fly', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '8', name: 'Incline Cable Fly', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '9', name: 'Pec Deck Machine', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '10', name: 'Push-Ups', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    
-    // Back
-    { id: '11', name: 'Deadlift', category: 'Strength', muscleGroup: 'Back', difficulty: 'Advanced' },
-    { id: '12', name: 'Pull-Ups', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate' },
-    { id: '13', name: 'Chin-Ups', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate' },
-    { id: '14', name: 'Lat Pulldown', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner' },
-    { id: '15', name: 'Barbell Bent-Over Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate' },
-    { id: '16', name: 'T-Bar Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate' },
-    { id: '17', name: 'Seated Cable Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner' },
-    { id: '18', name: 'Single-Arm Dumbbell Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner' },
-    
-    // Legs
-    { id: '21', name: 'Barbell Back Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '22', name: 'Barbell Front Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Advanced' },
-    { id: '23', name: 'Leg Press', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '24', name: 'Romanian Deadlift', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '25', name: 'Bulgarian Split Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '26', name: 'Walking Lunges', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '27', name: 'Leg Extensions', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '28', name: 'Hamstring Curls', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '29', name: 'Hip Thrusts', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '30', name: 'Calf Raises', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    
-    // Shoulders
-    { id: '33', name: 'Overhead Barbell Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Intermediate' },
-    { id: '34', name: 'Dumbbell Shoulder Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    { id: '35', name: 'Arnold Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Intermediate' },
-    { id: '36', name: 'Lateral Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    { id: '37', name: 'Front Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    { id: '38', name: 'Rear Delt Fly', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    
-    // Arms
-    { id: '41', name: 'Barbell Bicep Curl', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '42', name: 'Hammer Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '43', name: 'Preacher Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '44', name: 'Tricep Dips', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate' },
-    { id: '45', name: 'Tricep Pushdowns', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '46', name: 'Overhead Tricep Extension', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '47', name: 'Skull Crushers', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate' },
-    
-    // Core
-    { id: '51', name: 'Plank', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner' },
-    { id: '52', name: 'Russian Twists', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner' },
-    { id: '53', name: 'Bicycle Crunches', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner' },
-    { id: '54', name: 'Hanging Leg Raises', category: 'Strength', muscleGroup: 'Core', difficulty: 'Advanced' },
-    { id: '55', name: 'Ab Wheel Rollout', category: 'Strength', muscleGroup: 'Core', difficulty: 'Intermediate' },
-    
-    // Cardio
-    { id: '61', name: 'Running', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Beginner' },
-    { id: '62', name: 'Cycling', category: 'Cardio', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '63', name: 'Rowing', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Intermediate' },
-    { id: '64', name: 'Jump Rope', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Beginner' },
-    { id: '65', name: 'Burpees', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Intermediate' },
   ];
 
   const motivationalMessages = [
@@ -185,16 +252,19 @@ const Workout = () => {
     "You showed up and crushed it!"
   ];
 
-  // Timer effect
+  // Timer effect - calculate display time from startTime only
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (!isPaused && !showSummary) {
+    if (!isPaused && !showSummary && activeWorkout) {
       interval = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
+        const now = Date.now();
+        // Calculate time purely from startTime (don't add elapsedSeconds - that causes double counting)
+        const calculatedTime = Math.floor((now - activeWorkout.startTime) / 1000);
+        setElapsedSeconds(calculatedTime);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPaused, showSummary]);
+  }, [isPaused, showSummary, activeWorkout]);
 
   // Rest timer effect
   useEffect(() => {
@@ -226,14 +296,44 @@ const Workout = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const addExercise = (name: string) => {
-    const newExercise: Exercise = {
-      id: Date.now().toString(),
-      name,
-      sets: [{ reps: '', weight: '', completed: false }]
-    };
-    setExercises([...exercises, newExercise]);
-    setIsAddingExercise(false);
+  const addExercise = async (name: string) => {
+    try {
+      // Get active workout to add exercise to backend
+      const activeWorkoutResponse = await liveWorkoutService.getActiveWorkout();
+      
+      if (activeWorkoutResponse) {
+        // Add exercise to backend
+        const exerciseResponse = await liveWorkoutService.addExercise(activeWorkoutResponse.id, {
+          exercise_name: name,
+          notes: null
+        });
+        
+        // Add to frontend with backend ID
+        const newExercise: Exercise = {
+          id: String(exerciseResponse.id),
+          name: exerciseResponse.name,
+          sets: [{ reps: '', weight: '', completed: false }]
+        };
+        setExercises([...exercises, newExercise]);
+      } else {
+        // Fallback: add locally if no backend workout (shouldn't happen)
+        const newExercise: Exercise = {
+          id: Date.now().toString(),
+          name,
+          sets: [{ reps: '', weight: '', completed: false }]
+        };
+        setExercises([...exercises, newExercise]);
+      }
+    } catch (error) {
+      console.error('Failed to add exercise:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add exercise. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAddingExercise(false);
+    }
   };
 
   const addSet = (exerciseId: string) => {
@@ -270,13 +370,31 @@ const Workout = () => {
       return;
     }
 
-    // Mark set as completed
+    // Validate reps and weight are numbers
+    const reps = parseInt(set.reps);
+    const weight = parseFloat(set.weight);
+    
+    if (isNaN(reps) || isNaN(weight) || reps <= 0 || weight < 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter valid numbers for reps and weight.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Mark set as completed with validated values
     setExercises(exercises.map(ex => 
       ex.id === exerciseId 
         ? {
             ...ex,
             sets: ex.sets.map((s, idx) => 
-              idx === setIndex ? { ...s, completed: true } : s
+              idx === setIndex ? { 
+                ...s, 
+                completed: true,
+                reps: reps.toString(),
+                weight: weight.toString()
+              } : s
             )
           }
         : ex
@@ -344,42 +462,127 @@ const Workout = () => {
     }, 0);
   };
 
-  const finishWorkout = () => {
+  const finishWorkout = async () => {
     const totalVolume = calculateTotalWeight();
     const finalName = workoutName || `Workout – ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     
-    // Save workout count
-    storageAdapter.set(STORAGE_KEYS.WORKOUT_COUNT, workoutNumber);
-    
-    // Update streak
-    updateStreakOnWorkout();
-    
-    // Save the workout to history IMMEDIATELY
-    saveWorkout({
-      name: finalName,
-      date: formatWorkoutDate(Date.now()),
-      exercises: exercises.map(ex => ({
-        name: ex.name,
-        sets: ex.sets
-      })),
-      duration: elapsedSeconds,
-      totalVolume: totalVolume
-    });
-    
-    // Clear active workout from context
-    endWorkout();
-    
-    // Show summary
-    setShowSummary(true);
-    
-    toast({
-      title: motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)],
-      description: "Your workout has been saved.",
-    });
+    try {
+      // Get the active workout (should exist since we created it on start)
+      const activeWorkoutResponse = await liveWorkoutService.getActiveWorkout();
+      
+      if (!activeWorkoutResponse) {
+        throw new Error('No active workout found');
+      }
+      
+      const workoutId = activeWorkoutResponse.id;
+      
+      // Map frontend exercise IDs to backend exercise IDs
+      const exerciseIdMap = new Map<string, number>();
+      for (const backendEx of activeWorkoutResponse.exercises) {
+        exerciseIdMap.set(String(backendEx.id), Number(backendEx.id));
+      }
+      
+      // Add completed sets to existing exercises in backend BEFORE finishing
+      // Only process exercises that have at least one completed set
+      for (const exercise of exercises) {
+        // Check if this exercise has any completed sets
+        const hasCompletedSets = exercise.sets.some(set => set.completed);
+        if (!hasCompletedSets) {
+          // Skip exercises with no completed sets
+          continue;
+        }
+        
+        let backendExerciseId = exerciseIdMap.get(exercise.id);
+        
+        // If exercise doesn't exist in backend (manually added during workout), create it
+        if (!backendExerciseId) {
+          const exerciseResponse = await liveWorkoutService.addExercise(workoutId, {
+            exercise_name: exercise.name,
+            notes: null
+          });
+          backendExerciseId = exerciseResponse.id;
+        }
+        
+        // Add all completed sets for this exercise
+        for (const set of exercise.sets) {
+          if (set.completed) {
+            // Convert weight to lbs if user preference is kg (backend stores in lbs)
+            const weightInLbs = preferences.weightUnit === 'kg' 
+              ? (parseFloat(set.weight || '0') * 2.20462).toString()
+              : set.weight || '0';
+            
+            await liveWorkoutService.addSet(backendExerciseId, {
+              reps: set.reps || '0',
+              weight: weightInLbs,
+              rpe: set.rpe || null,
+              completed: true, // CRITICAL: Mark as completed for backend analytics
+              is_warmup: set.isWarmup || false,
+              is_dropset: set.isDropset || false,
+              is_failure: set.isFailure || false
+            });
+          }
+        }
+      }
+      
+      // NOW finish the workout in backend (after all sets are added)
+      // Backend will calculate total_volume, total_sets, etc.
+      await liveWorkoutService.finishWorkout({ workout_name: finalName });
+      
+      // Save workout count
+      storageAdapter.set(STORAGE_KEYS.WORKOUT_COUNT, workoutNumber);
+      
+      // Update streak
+      updateStreakOnWorkout();
+      
+      // Save the workout to history locally (for backward compatibility)
+      // Only include exercises with at least one completed set
+      const completedExercises = exercises.filter(ex => 
+        ex.sets.some(set => set.completed)
+      );
+      
+      saveWorkout({
+        name: finalName,
+        date: formatWorkoutDate(Date.now()),
+        exercises: completedExercises.map(ex => ({
+          name: ex.name,
+          sets: ex.sets
+        })),
+        duration: elapsedSeconds,
+        totalVolume: totalVolume
+      });
+      
+      // Invalidate workout cache so fresh data is fetched
+      invalidateWorkoutCache();
+      
+      // Invalidate stats cache to refresh stats with new workout data
+      statsService.invalidate();
+      
+      // Clear active workout from context
+      endWorkout();
+      
+      // Select motivational message once (prevent flickering)
+      const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+      setSummaryMessage(randomMessage);
+      
+      // Show summary
+      setShowSummary(true);
+      
+      toast({
+        title: randomMessage,
+        description: "Your workout has been saved.",
+      });
+    } catch (error) {
+      console.error('Failed to save workout to backend:', error);
+      toast({
+        title: "Workout Save Error",
+        description: "Failed to save workout to server. Please check your connection and try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const closeSummary = () => {
-    navigate('/dashboard');
+    navigate('/dashboard', { state: { refreshData: true } });
   };
 
   const cancelWorkout = () => {
@@ -394,8 +597,12 @@ const Workout = () => {
   };
 
   if (showSummary) {
-    const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
     const totalWeight = calculateTotalWeight();
+    // Only count exercises and sets that were actually completed
+    const completedExercises = exercises.filter(ex => ex.sets.some(set => set.completed));
+    const completedSetsCount = exercises.reduce((total, ex) => 
+      total + ex.sets.filter(set => set.completed).length, 0
+    );
 
     return (
       <Layout>
@@ -403,7 +610,7 @@ const Workout = () => {
           <div className="max-w-md mx-auto p-4">
           <Card className="w-full max-w-md animate-fade-in card-elevated">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl mb-4">{randomMessage}</CardTitle>
+              <CardTitle className="text-3xl mb-4">{summaryMessage}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center space-y-4">
@@ -417,20 +624,20 @@ const Workout = () => {
                   <Dumbbell className="h-6 w-6 text-primary" />
                   <div>
                     <p className="text-3xl font-bold">{totalWeight.toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground">Total lbs lifted</p>
+                    <p className="text-sm text-muted-foreground">Total {preferences.weightUnit} lifted</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">{exercises.length}</p>
+                    <p className="text-2xl font-bold text-primary">{completedExercises.length}</p>
                     <p className="text-sm text-muted-foreground">Exercises</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-primary">
-                      {exercises.reduce((total, ex) => total + ex.sets.length, 0)}
+                      {completedSetsCount}
                     </p>
-                    <p className="text-sm text-muted-foreground">Total Sets</p>
+                    <p className="text-sm text-muted-foreground">Completed Sets</p>
                   </div>
                 </div>
               </div>
@@ -441,6 +648,20 @@ const Workout = () => {
               </Button>
             </CardContent>
           </Card>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Show loading state while initializing
+  if (isInitializing) {
+    return (
+      <Layout>
+        <div className="w-full min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground">Preparing your workout...</p>
           </div>
         </div>
       </Layout>
@@ -541,7 +762,7 @@ const Workout = () => {
                           className="rounded-xl"
                           disabled={set.completed}
                         />
-                        <span className="text-sm text-muted-foreground">lbs</span>
+                        <span className="text-sm text-muted-foreground">{preferences.weightUnit}</span>
                         {!set.completed ? (
                           <Button
                             variant="outline"

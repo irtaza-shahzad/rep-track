@@ -18,14 +18,15 @@ const ActiveWorkoutIndicator = () => {
     location.pathname !== '/' && 
     location.pathname !== '/login';
 
-  // Update display time based on elapsed seconds + time since start
+  // Update display time based on time since start only
   useEffect(() => {
     if (!activeWorkout || !shouldShow) return;
 
     const updateTime = () => {
       const now = Date.now();
+      // Calculate time purely from startTime (don't add elapsedSeconds)
       const elapsed = Math.floor((now - activeWorkout.startTime) / 1000);
-      setDisplayTime(activeWorkout.elapsedSeconds + elapsed);
+      setDisplayTime(elapsed);
     };
 
     updateTime();

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, TrendingUp, Target, Flame, Clock, Dumbbell, X, Activity, Award, Zap, History as HistoryIcon, Library, Settings } from 'lucide-react';
+import { Plus, TrendingUp, Target, Flame, Clock, Dumbbell, X, Activity, Award, Zap, History as HistoryIcon, Library, Settings, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,12 +7,14 @@ import Layout from '@/components/Layout';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { StartWorkoutDialog } from '@/components/StartWorkoutDialog';
 import { TemplatePickerDialog } from '@/components/TemplatePickerDialog';
-import { getWorkoutHistory, SavedWorkout, formatWorkoutDate } from '@/lib/workoutStorage';
+import { getWorkoutHistory, getWorkoutStats, formatWorkoutDate, getRelativeDate, type WorkoutHistoryItem, type WorkoutStats } from '@/services/workoutHistoryService';
 import PageHeader from '@/components/PageHeader';
 import { useWorkout } from '@/contexts/WorkoutContext';
+import { usePreferences } from '@/contexts/PreferencesContext';
 import { useToast } from '@/hooks/use-toast';
 import { STORAGE_KEYS } from '@/core/constants/AppConstants';
 import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
+import { templateService, WorkoutTemplate as APIWorkoutTemplate } from '@/services/templateService';
 
 interface WorkoutTemplate {
   id: string;
@@ -25,13 +27,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { activeWorkout, hasActiveWorkout } = useWorkout();
+  const { preferences, convertWeight } = usePreferences();
+  const { activeWorkout, hasActiveWorkout, endWorkout } = useWorkout();
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
-  const [workoutHistory, setWorkoutHistory] = useState<SavedWorkout[]>([]);
-  const [selectedWorkout, setSelectedWorkout] = useState<SavedWorkout | null>(null);
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryItem[]>([]);
+  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistoryItem | null>(null);
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<WorkoutStats | null>(null);
   const isWorkoutActive = location.state?.workoutActive || false;
 
   // Motivational quotes array
@@ -55,35 +60,64 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    // Load templates from localStorage
-    const stored = storageAdapter.get<WorkoutTemplate[]>(STORAGE_KEYS.WORKOUT_TEMPLATES);
-    setTemplates(stored || []);
+    // Load templates from API
+    loadTemplatesFromAPI();
     
-    // Load workout history (mock data seeding removed - will be replaced with real API)
-    setWorkoutHistory(getWorkoutHistory());
-  }, []);
+    // Load workout history and stats from API
+    loadDashboardData();
+  }, [location.key, location.state?.refreshData]); // Use location.key to reload on navigation but not on every pathname change
 
-  const stats = [
-    { label: 'Workouts This Week', value: '4', icon: Target, color: 'text-primary' },
-    { label: 'Current Streak', value: '7 days', icon: Flame, color: 'text-accent' },
-    { label: 'Total Volume', value: '12.5K lbs', icon: TrendingUp, color: 'text-chart-gold' },
-  ];
-
-  // Get last 5 workouts for recent section
-  const recentWorkouts = workoutHistory.slice(0, 5);
-
-  const getRelativeDate = (timestamp: number): string => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    return formatWorkoutDate(timestamp);
+  const loadTemplatesFromAPI = async () => {
+    try {
+      const apiTemplates = await templateService.getAllTemplates();
+      
+      // Convert API format to Dashboard format
+      const dashboardTemplates: WorkoutTemplate[] = apiTemplates.map((t: APIWorkoutTemplate) => ({
+        id: String(t.id),
+        name: t.name,
+        exercises: t.template_exercises?.map(ex => ex.exercise_name) || [],
+        duration: `${(t.template_exercises?.length || 0) * 5} min` // Estimate 5 min per exercise
+      }));
+      
+      setTemplates(dashboardTemplates);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+      // Fallback to empty array instead of showing error toast
+      setTemplates([]);
+    }
   };
 
-  const handleWorkoutClick = (workout: SavedWorkout) => {
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      // If coming from finished workout, force fresh data (bypass cache)
+      const shouldForceRefresh = location.state?.refreshData === true;
+      
+      const [historyData, statsData] = await Promise.all([
+        getWorkoutHistory(5, 0, shouldForceRefresh), // Force refresh if needed
+        getWorkoutStats(shouldForceRefresh) // Force refresh if needed
+      ]);
+      setWorkoutHistory(historyData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      toast({
+        title: "Error Loading Data",
+        description: "Failed to load workout data. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsDisplay = stats ? [
+    { label: 'Total Workouts', value: stats.total_workouts.toString(), icon: Target, color: 'text-primary' },
+    { label: 'Current Streak', value: `${stats.current_streak} ${stats.current_streak === 1 ? 'day' : 'days'}`, icon: Flame, color: 'text-accent' },
+    { label: 'Total Volume', value: stats.total_volume >= 1000 ? `${(convertWeight(stats.total_volume, 'lbs') / 1000).toFixed(1)}K ${preferences.weightUnit}` : `${Math.round(convertWeight(stats.total_volume, 'lbs'))} ${preferences.weightUnit}`, icon: TrendingUp, color: 'text-chart-gold' },
+  ] : [];
+
+  const handleWorkoutClick = (workout: WorkoutHistoryItem) => {
     setSelectedWorkout(workout);
     setShowWorkoutDetails(true);
   };
@@ -103,17 +137,30 @@ const Dashboard = () => {
 
   const handleStartEmpty = () => {
     setShowStartDialog(false);
-    navigate('/workout', { state: { template: null } });
+    // Clear any existing workout draft before starting fresh
+    endWorkout();
+    // Small delay to ensure dialog unmounts and cleans up scroll lock before navigation
+    setTimeout(() => {
+      navigate('/workout', { state: { template: null, clearDraft: true } });
+    }, 50);
   };
 
   const handleStartFromTemplate = () => {
     setShowStartDialog(false);
-    setShowTemplatePicker(true);
+    // Small delay before showing next dialog
+    setTimeout(() => {
+      setShowTemplatePicker(true);
+    }, 100);
   };
 
   const handleSelectTemplate = (template: WorkoutTemplate) => {
     setShowTemplatePicker(false);
-    navigate('/workout', { state: { template } });
+    // Clear any existing workout draft before starting from template
+    endWorkout();
+    // Small delay to ensure dialog unmounts and cleans up scroll lock before navigation
+    setTimeout(() => {
+      navigate('/workout', { state: { template, clearDraft: true } });
+    }, 50);
   };
 
   // Don't show dashboard if workout is active
@@ -153,24 +200,30 @@ const Dashboard = () => {
 
           {/* Quick Stats - Compact Grid */}
           <div className="grid grid-cols-3 gap-3 md:gap-4 animate-slide-up">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <Card key={index} className="card-elevated hover:scale-105 transition-transform">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col items-center text-center gap-2">
-                      <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl bg-muted flex items-center justify-center ${stat.color}`}>
-                        <Icon className="h-5 w-5 md:h-6 md:w-6" />
+            {loading ? (
+              <div className="col-span-3 flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              statsDisplay.map((stat, index) => {
+                const Icon = stat.icon;
+                return (
+                  <Card key={index} className="card-elevated hover:scale-105 transition-transform">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col items-center text-center gap-2">
+                        <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl bg-muted flex items-center justify-center ${stat.color}`}>
+                          <Icon className="h-5 w-5 md:h-6 md:w-6" />
+                        </div>
+                        <div>
+                          <p className="text-xl md:text-2xl font-bold mb-0.5">{stat.value}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xl md:text-2xl font-bold mb-0.5">{stat.value}</p>
-                        <p className="text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
 
           {/* Quick Actions */}
@@ -196,34 +249,38 @@ const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {recentWorkouts.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : workoutHistory.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <p>No workouts yet. Start your first workout!</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {recentWorkouts.map((workout) => (
+                {workoutHistory.map((workout) => (
                   <div
                     key={workout.id}
                     className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
                     onClick={() => handleWorkoutClick(workout)}
                   >
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{workout.name}</h3>
+                      <h3 className="font-semibold mb-1">{workout.workout_name}</h3>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Dumbbell className="h-3.5 w-3.5" />
-                          {workout.exercises.length} exercises
+                          {workout.exercises_count || 0} exercises
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          {Math.round(workout.duration / 60)} min
+                          {Math.round(workout.elapsed_seconds / 60)} min
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-muted-foreground">{getRelativeDate(workout.timestamp)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{workout.totalVolume.toLocaleString()} lbs</p>
+                      <p className="text-sm text-muted-foreground">{getRelativeDate(workout.start_time)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{Math.round(convertWeight(workout.total_volume || 0, 'lbs')).toLocaleString()} {preferences.weightUnit}</p>
                     </div>
                   </div>
                 ))}
@@ -248,11 +305,11 @@ const Dashboard = () => {
             onSelectTemplate={handleSelectTemplate}
           />
 
-          {/* Workout Details Dialog */}
+          {/* Workout Details Dialog - Simplified (redirects to history for full details) */}
           <Dialog open={showWorkoutDetails} onOpenChange={setShowWorkoutDetails}>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>{selectedWorkout?.name}</DialogTitle>
+                <DialogTitle>{selectedWorkout?.workout_name}</DialogTitle>
               </DialogHeader>
               {selectedWorkout && (
                 <div className="space-y-6">
@@ -261,7 +318,7 @@ const Dashboard = () => {
                       <CardContent className="pt-4">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Duration</p>
-                          <p className="text-2xl font-bold">{Math.round(selectedWorkout.duration / 60)} min</p>
+                          <p className="text-2xl font-bold">{Math.round(selectedWorkout.elapsed_seconds / 60)} min</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -269,34 +326,39 @@ const Dashboard = () => {
                       <CardContent className="pt-4">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Total Volume</p>
-                          <p className="text-2xl font-bold">{selectedWorkout.totalVolume.toLocaleString()} lbs</p>
+                          <p className="text-2xl font-bold">{Math.round(convertWeight(selectedWorkout.total_volume || 0, 'lbs')).toLocaleString()} {preferences.weightUnit}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Exercises</p>
+                          <p className="text-2xl font-bold">{selectedWorkout.exercises_count || 0}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground">Total Sets</p>
+                          <p className="text-2xl font-bold">{selectedWorkout.total_sets || 0}</p>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  <div>
-                    <h3 className="font-semibold mb-3">Exercises</h3>
-                    <div className="space-y-4">
-                      {selectedWorkout.exercises.map((exercise, idx) => (
-                        <Card key={idx}>
-                          <CardContent className="pt-4">
-                            <h4 className="font-medium mb-3">{exercise.name}</h4>
-                            <div className="space-y-2">
-                              {exercise.sets.map((set, setIdx) => (
-                                <div key={setIdx} className="flex justify-between text-sm">
-                                  <span className="text-muted-foreground">Set {setIdx + 1}</span>
-                                  <span className="font-medium">
-                                    {set.weight} lbs × {set.reps} reps
-                                    {set.rpe && <span className="text-muted-foreground ml-2">RPE {set.rpe}</span>}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-3">Want to see full exercise details?</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowWorkoutDetails(false);
+                        navigate('/history');
+                      }}
+                    >
+                      View in History
+                    </Button>
                   </div>
                 </div>
               )}
