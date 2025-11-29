@@ -22,6 +22,7 @@ from app.api.schemas.workout_schema import (
     WorkoutSetUpdate,
     FinishWorkoutRequest,
 )
+from app.api.services import stats_service
 
 
 def get_active_workout(db: Session, user_id: int) -> Optional[WorkoutSession]:
@@ -426,6 +427,14 @@ def finish_workout(
     
     db.commit()
     db.refresh(workout)
+    
+    # Create stats event and process it
+    try:
+        event_id = stats_service.create_event_for_session(db, user_id, workout.id)
+        stats_service.process_event(db, event_id)
+    except Exception as e:
+        # Log error but don't fail the workout completion
+        print(f"Error processing stats event: {e}")
     
     return workout
 

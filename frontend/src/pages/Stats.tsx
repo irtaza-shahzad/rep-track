@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, Calendar, Target, Flame, Award, Trophy, Medal, Zap, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,126 +6,227 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import Layout from '@/components/Layout';
 import { getStreakConfig, initializeStreak, getCurrentWeekProgress } from '@/lib/streakStorage';
 import PageHeader from '@/components/PageHeader';
 import { usePreferences } from '@/contexts/PreferencesContext';
+import { statsService, Summary, TimeseriesPoint } from '@/services/statsService';
 
 const Stats = () => {
   const [streakConfig, setStreakConfig] = useState(getStreakConfig());
   const [showStreakSetup, setShowStreakSetup] = useState(false);
   const [targetDays, setTargetDays] = useState(4);
-  const [dateRange, setDateRange] = useState('30');
+  const [dateRange, setDateRange] = useState('90'); // 90 days default
   const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<string>('all');
   const { preferences, convertWeight } = usePreferences();
   
-  // Mock data for Volume Over Time (last 12 weeks)
-  const volumeData = [
-    { week: 'Week 1', volume: 8500 },
-    { week: 'Week 2', volume: 9200 },
-    { week: 'Week 3', volume: 8800 },
-    { week: 'Week 4', volume: 10100 },
-    { week: 'Week 5', volume: 9500 },
-    { week: 'Week 6', volume: 11200 },
-    { week: 'Week 7', volume: 10800 },
-    { week: 'Week 8', volume: 11500 },
-    { week: 'Week 9', volume: 11000 },
-    { week: 'Week 10', volume: 12100 },
-    { week: 'Week 11', volume: 12500 },
-    { week: 'Week 12', volume: 13200 },
-  ];
-
-  // Mock data for Workout Frequency (last 8 weeks)
-  const frequencyData = [
-    { week: 'W1', workouts: 3 },
-    { week: 'W2', workouts: 4 },
-    { week: 'W3', workouts: 4 },
-    { week: 'W4', workouts: 5 },
-    { week: 'W5', workouts: 3 },
-    { week: 'W6', workouts: 5 },
-    { week: 'W7', workouts: 4 },
-    { week: 'W8', workouts: 5 },
-  ];
-
-  // Mock data for Muscle Group Distribution
-  const muscleGroupData = [
-    { name: 'Chest', sets: 145, color: '#3B82F6' },
-    { name: 'Back', sets: 168, color: '#8B5CF6' },
-    { name: 'Legs', sets: 223, color: '#10B981' },
-    { name: 'Shoulders', sets: 112, color: '#F59E0B' },
-    { name: 'Arms', sets: 98, color: '#EF4444' },
-    { name: 'Core', sets: 67, color: '#EC4899' },
-  ];
-
-  // Mock data for PR Progression (multiple exercises)
-  const prProgressionData = [
-    { date: 'Jan 1', benchPress: 185, squat: 225, deadlift: 275, overheadPress: 115 },
-    { date: 'Jan 15', benchPress: 190, squat: 235, deadlift: 285, overheadPress: 120 },
-    { date: 'Feb 1', benchPress: 195, squat: 245, deadlift: 295, overheadPress: 120 },
-    { date: 'Feb 15', benchPress: 200, squat: 255, deadlift: 305, overheadPress: 125 },
-    { date: 'Mar 1', benchPress: 205, squat: 265, deadlift: 315, overheadPress: 130 },
-    { date: 'Mar 15', benchPress: 210, squat: 275, deadlift: 325, overheadPress: 135 },
-    { date: 'Apr 1', benchPress: 215, squat: 285, deadlift: 345, overheadPress: 140 },
-    { date: 'Apr 15', benchPress: 220, squat: 295, deadlift: 365, overheadPress: 145 },
-    { date: 'May 1', benchPress: 225, squat: 305, deadlift: 385, overheadPress: 150 },
-    { date: 'May 15', benchPress: 225, squat: 315, deadlift: 405, overheadPress: 155 },
-  ];
-
-  // Mock data for Workout Duration Trends
-  const durationData = [
-    { week: 'Week 1', duration: 48 },
-    { week: 'Week 2', duration: 52 },
-    { week: 'Week 3', duration: 47 },
-    { week: 'Week 4', duration: 55 },
-    { week: 'Week 5', duration: 50 },
-    { week: 'Week 6', duration: 58 },
-    { week: 'Week 7', duration: 53 },
-    { week: 'Week 8', duration: 56 },
-    { week: 'Week 9', duration: 51 },
-    { week: 'Week 10', duration: 54 },
-    { week: 'Week 11', duration: 49 },
-    { week: 'Week 12', duration: 52 },
-  ];
-
-  // Mock data for Average Sets per Workout (Workout Intensity)
-  const avgSetsData = [
-    { week: 'Week 1', avgSets: 18 },
-    { week: 'Week 2', avgSets: 20 },
-    { week: 'Week 3', avgSets: 19 },
-    { week: 'Week 4', avgSets: 22 },
-    { week: 'Week 5', avgSets: 21 },
-    { week: 'Week 6', avgSets: 24 },
-    { week: 'Week 7', avgSets: 23 },
-    { week: 'Week 8', avgSets: 25 },
-    { week: 'Week 9', avgSets: 24 },
-    { week: 'Week 10', avgSets: 26 },
-    { week: 'Week 11', avgSets: 25 },
-    { week: 'Week 12', avgSets: 27 },
-  ];
-
-  // Milestone data
-  const totalReps = 12847;
-  const totalWeight = 1456320; // in lbs
-  const repsNextMilestone = 15000;
-  const weightNextMilestone = 1500000;
+  // Smart period selection based on date range to prevent messy graphs
+  const getOptimalPeriod = (days: string): 'day' | 'week' | 'month' => {
+    const numDays = parseInt(days);
+    if (numDays <= 30) return 'day';      // Last 30 days: daily view
+    if (numDays <= 90) return 'week';     // Last 90 days: weekly view
+    if (numDays <= 180) return 'week';    // Last 6 months: weekly view
+    return 'month';                        // Last year: monthly view
+  };
   
-  const progressData = [
-    { month: 'Jan', volume: 8500 },
-    { month: 'Feb', volume: 9200 },
-    { month: 'Mar', volume: 10100 },
-    { month: 'Apr', volume: 11500 },
-    { month: 'May', volume: 12500 },
-  ];
+  const period = getOptimalPeriod(dateRange);
+  
+  // Stats data from API
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [timeseriesData, setTimeseriesData] = useState<TimeseriesPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Personal records with converted weights
-  const personalRecords = [
-    { exercise: 'Bench Press', weight: convertWeight(225, 'lbs'), date: 'May 8', reps: 5 },
-    { exercise: 'Squat', weight: convertWeight(315, 'lbs'), date: 'May 5', reps: 3 },
-    { exercise: 'Deadlift', weight: convertWeight(405, 'lbs'), date: 'Apr 28', reps: 1 },
-    { exercise: 'Overhead Press', weight: convertWeight(155, 'lbs'), date: 'May 10', reps: 5 },
-    { exercise: 'Pull-ups', weight: convertWeight(45, 'lbs'), date: 'May 3', reps: 8 },
+  // Fetch data on mount and when filters change
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch summary
+        const summaryData = await statsService.getSummary();
+        setSummary(summaryData);
+        
+        // Calculate date range
+        const toDate = new Date().toISOString().split('T')[0];
+        const fromDate = new Date(Date.now() - parseInt(dateRange) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        // Fetch timeseries
+        const timeseries = await statsService.getTimeseries(period, fromDate, toDate);
+        setTimeseriesData(timeseries);
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+        setError('Failed to load stats data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [dateRange, period]);
+  
+  // Transform timeseries data for charts
+  const volumeData = timeseriesData.map(point => ({
+    date: point.periodStart,
+    volume: Math.round(convertWeight(point.volume, 'lbs'))
+  }));
+  
+  const workoutFrequencyData = timeseriesData.map(point => ({
+    date: point.periodStart,
+    workouts: point.workoutsCompleted
+  }));
+  
+  const durationData = timeseriesData.map(point => ({
+    date: point.periodStart,
+    duration: Math.round(point.avgDurationMin)
+  }));
+  
+  const repsData = timeseriesData.map(point => ({
+    date: point.periodStart,
+    reps: point.repsLogged
+  }));
+  
+  const setsData = timeseriesData.map(point => ({
+    date: point.periodStart,
+    sets: point.setsLogged
+  }));
+  
+  // Calculate average sets per workout
+  const avgSetsData = timeseriesData.map(point => ({
+    date: point.periodStart,
+    avgSets: point.workoutsCompleted > 0 ? Math.round(point.setsLogged / point.workoutsCompleted) : 0
+  }));
+  
+  // Define the 5 main compound movements we want to track
+  const COMPOUND_MOVEMENTS = [
+    'Bench Press',
+    'Squat', 
+    'Deadlift',
+    'Overhead Press',
+    'Pull-ups'
   ];
+  
+  // Transform PRs data - only show the 5 main compound movements
+  const personalRecords = summary?.bestOneRepMaxByExercise 
+    ? Object.entries(summary.bestOneRepMaxByExercise)
+        .filter(([exercise, weight]) => {
+          // Only include the 5 main compound movements
+          return COMPOUND_MOVEMENTS.includes(exercise);
+        })
+        .map(([exercise, weight]) => ({
+          exercise,
+          weight: Math.round(convertWeight(weight, 'lbs')),
+          date: 'Recent',
+          reps: 1
+        }))
+        .sort((a, b) => b.weight - a.weight)
+    : [];
+  
+  // Get unique exercises from PRs for the filter
+  const availableExercises = personalRecords.map(pr => pr.exercise);
+  
+  // PR progression data - build from timeseries historical data
+  // This creates step-wise progression: flat until new PR, then climbs
+  const prProgressionData = (() => {
+    if (!timeseriesData.length) return [];
+    
+    // Track cumulative best PRs across all periods
+    const cumulativePRs: Record<string, number> = {};
+    
+    return timeseriesData.map(point => {
+      const data: any = { date: point.periodStart };
+      
+      // Update cumulative PRs with this period's PRs
+      if (point.bestOneRepMaxByExercise) {
+        Object.entries(point.bestOneRepMaxByExercise).forEach(([exercise, weight]) => {
+          // Only track if it's better than what we've seen so far
+          if (!cumulativePRs[exercise] || weight > cumulativePRs[exercise]) {
+            cumulativePRs[exercise] = weight;
+          }
+        });
+      }
+      
+      // Add top 4 exercises to the data point
+      personalRecords.forEach((pr, index) => {
+        if (index < 4) {
+          // Use cumulative PR (best so far) or null if no data yet
+          data[pr.exercise] = cumulativePRs[pr.exercise] 
+            ? Math.round(convertWeight(cumulativePRs[pr.exercise], 'lbs'))
+            : null;
+        }
+      });
+      
+      return data;
+    });
+  })();
+  
+  // Muscle Group Distribution - use real data from backend
+  const muscleGroupColors: Record<string, string> = {
+    'Chest': '#3B82F6',
+    'Back': '#8B5CF6',
+    'Legs': '#10B981',
+    'Shoulders': '#F59E0B',
+    'Arms': '#EF4444',
+    'Core': '#EC4899',
+    'FullBody': '#06B6D4',
+    'Other': '#6B7280',
+  };
+  
+  const muscleGroupData = summary?.muscleGroupBreakdown
+    ? Object.entries(summary.muscleGroupBreakdown)
+        .map(([name, sets]) => ({
+          name,
+          sets: sets as number,
+          color: muscleGroupColors[name] || '#6B7280'
+        }))
+        .sort((a, b) => b.sets - a.sets) // Sort by most sets
+    : [];
+  
+  // Calculate filtered total workouts from timeseries data
+  const filteredTotalWorkouts = timeseriesData.reduce((sum, p) => sum + p.workoutsCompleted, 0);
+  
+  // Calculate average sets per workout (within filtered range)
+  const filteredTotalSets = timeseriesData.reduce((sum, p) => sum + p.setsLogged, 0);
+  const avgSetsPerWorkout = filteredTotalWorkouts > 0 
+    ? (filteredTotalSets / filteredTotalWorkouts).toFixed(1)
+    : '0.0';
+  
+  // Calculate consistency (% of expected workouts completed in filtered range)
+  // Assuming 4 workouts per week as target
+  const expectedWorkouts = (parseInt(dateRange) / 7) * 4; // Use exact division, not ceiling
+  const consistency = expectedWorkouts > 0
+    ? Math.min(100, Math.round((filteredTotalWorkouts / expectedWorkouts) * 100))
+    : 0;
+
+  // Milestone data - based on real stats with smart increments
+  const totalReps = summary?.totalReps || 0;
+  const totalWeight = Math.round(convertWeight(summary?.totalVolume || 0, 'lbs'));
+  
+  // Smart reps milestone: use smaller increments for lower numbers
+  const getRepsIncrement = (reps: number) => {
+    if (reps < 10000) return 1000;      // 1K increments up to 10K
+    if (reps < 50000) return 5000;      // 5K increments up to 50K
+    return 10000;                        // 10K increments after 50K
+  };
+  const repsIncrement = getRepsIncrement(totalReps);
+  const repsNextMilestone = Math.ceil(totalReps / repsIncrement) * repsIncrement || repsIncrement;
+  
+  // Smart weight milestone: adjust based on unit and current progress
+  const getWeightIncrement = (weight: number, unit: string) => {
+    if (unit === 'kg') {
+      if (weight < 50000) return 10000;   // 10K kg increments up to 50K
+      if (weight < 200000) return 25000;  // 25K kg increments up to 200K
+      return 50000;                       // 50K kg increments after 200K
+    } else {
+      if (weight < 100000) return 25000;  // 25K lbs increments up to 100K
+      if (weight < 500000) return 50000;  // 50K lbs increments up to 500K
+      return 100000;                      // 100K lbs increments after 500K
+    }
+  };
+  const weightIncrement = getWeightIncrement(totalWeight, preferences.weightUnit);
+  const weightNextMilestone = Math.ceil(totalWeight / weightIncrement) * weightIncrement || weightIncrement;
 
   const handleStartStreaks = () => {
     setShowStreakSetup(true);
@@ -156,102 +257,125 @@ const Stats = () => {
 
             {/* Statistics Tab */}
             <TabsContent value="statistics" className="space-y-6">
-              {/* Date Range Selector */}
-              <div className="flex justify-end">
-                <Select value={dateRange} onValueChange={setDateRange}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select range" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="7">Last 7 Days</SelectItem>
-                    <SelectItem value="30">Last 30 Days</SelectItem>
-                    <SelectItem value="90">Last 90 Days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Overview Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              <Card className="card-elevated">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Calendar className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Workouts</p>
-                      <p className="text-2xl font-bold">47</p>
-                    </div>
+              {loading && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Loading stats...</p>
+                </div>
+              )}
+              
+              {error && (
+                <div className="text-center py-12">
+                  <p className="text-destructive">{error}</p>
+                </div>
+              )}
+              
+              {!loading && !error && summary && (
+                <>
+                  {/* Date Range and Period Selectors */}
+                  <div className="flex gap-4 justify-end flex-wrap">
+                    <Select value={dateRange} onValueChange={setDateRange}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">Last 30 Days (Daily)</SelectItem>
+                        <SelectItem value="90">Last 90 Days (Weekly)</SelectItem>
+                        <SelectItem value="180">Last 6 Months (Weekly)</SelectItem>
+                        <SelectItem value="365">Last Year (Monthly)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card className="card-elevated">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                      <Target className="h-5 w-5 text-accent" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Avg per Week</p>
-                      <p className="text-2xl font-bold">4.2</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* Overview Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    <Card className="card-elevated">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Calendar className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Workouts</p>
+                            <p className="text-2xl font-bold">{filteredTotalWorkouts}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-              <Card className="card-elevated">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-chart-gold/10 flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-chart-gold" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Consistency</p>
-                      <p className="text-2xl font-bold">92%</p>
-                    </div>
+                    <Card className="card-elevated">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                            <Target className="h-5 w-5 text-accent" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Avg Sets/Workout</p>
+                            <p className="text-2xl font-bold">{avgSetsPerWorkout}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="card-elevated">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl bg-chart-gold/10 flex items-center justify-center">
+                            <TrendingUp className="h-5 w-5 text-chart-gold" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Consistency</p>
+                            <p className="text-2xl font-bold">{consistency}%</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
-              </div>
 
               {/* Charts Grid - 2 columns on large screens */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Volume Over Time Chart */}
                 <Card className="card-elevated">
                   <CardHeader>
-                    <CardTitle>Training Volume Over Time</CardTitle>
+                    <CardTitle className="text-base md:text-lg">Training Volume Over Time</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={280}>
-                      <LineChart data={volumeData}>
+                      <LineChart data={volumeData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis 
-                          dataKey="week" 
+                          dataKey="date" 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return period === 'month' 
+                              ? date.toLocaleDateString('en-US', { month: 'short' })
+                              : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          }}
                         />
                         <YAxis 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
-                          label={{ value: `Volume (${preferences.weightUnit})`, angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          width={60}
                         />
                         <Tooltip 
                           contentStyle={{ 
                             backgroundColor: '#1F2937', 
                             border: '1px solid #374151',
-                            borderRadius: '8px'
+                            borderRadius: '8px',
+                            fontSize: '14px'
                           }}
                           labelStyle={{ color: '#F3F4F6' }}
+                          formatter={(value: any) => [`${value} ${preferences.weightUnit}`, 'Volume']}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
                         <Line 
                           type="monotone" 
                           dataKey="volume" 
                           stroke="#3B82F6" 
                           strokeWidth={3}
-                          dot={{ fill: '#3B82F6', r: 5 }}
-                          activeDot={{ r: 7 }}
+                          dot={{ fill: '#3B82F6', r: 4 }}
+                          activeDot={{ r: 6 }}
                           name={`Volume (${preferences.weightUnit})`}
                         />
                       </LineChart>
@@ -262,36 +386,43 @@ const Stats = () => {
                 {/* Workout Frequency Chart */}
                 <Card className="card-elevated">
                   <CardHeader>
-                    <CardTitle>Workout Frequency</CardTitle>
+                    <CardTitle className="text-base md:text-lg">Workout Frequency</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={frequencyData}>
+                      <BarChart data={workoutFrequencyData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis 
-                          dataKey="week" 
+                          dataKey="date" 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return period === 'month' 
+                              ? date.toLocaleDateString('en-US', { month: 'short' })
+                              : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          }}
                         />
                         <YAxis 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
-                          label={{ value: 'Workouts', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          width={40}
                         />
                         <Tooltip 
                           contentStyle={{ 
                             backgroundColor: '#1F2937', 
                             border: '1px solid #374151',
-                            borderRadius: '8px'
+                            borderRadius: '8px',
+                            fontSize: '14px'
                           }}
                           labelStyle={{ color: '#F3F4F6' }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
                         <Bar 
                           dataKey="workouts" 
                           fill="#8B5CF6" 
                           radius={[8, 8, 0, 0]}
-                          name="Workouts per Week"
+                          name="Workouts"
                         />
                       </BarChart>
                     </ResponsiveContainer>
@@ -301,167 +432,169 @@ const Stats = () => {
                 {/* Muscle Group Distribution */}
                 <Card className="card-elevated">
                   <CardHeader>
-                    <CardTitle>Muscle Group Distribution</CardTitle>
+                    <CardTitle className="text-base md:text-lg">Muscle Group Distribution</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie
-                          data={muscleGroupData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="sets"
-                        >
-                          {muscleGroupData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        border: '1px solid #374151',
-                        borderRadius: '8px'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
-                  {muscleGroupData.map((muscle) => (
-                    <div key={muscle.name} className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: muscle.color }}></div>
-                      <span className="text-sm text-muted-foreground">{muscle.name}: {muscle.sets} sets</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    {muscleGroupData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-[280px] text-muted-foreground">
+                        <Target className="h-12 w-12 mb-3 opacity-50" />
+                        <p className="text-sm md:text-base text-center px-4">No workout data yet. Complete workouts to see your muscle group breakdown!</p>
+                      </div>
+                    ) : (
+                      <>
+                        <ResponsiveContainer width="100%" height={280}>
+                          <PieChart>
+                            <Pie
+                              data={muscleGroupData}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={false}
+                              outerRadius={90}
+                              fill="#8884d8"
+                              dataKey="sets"
+                            >
+                              {muscleGroupData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: '#1F2937', 
+                                border: '1px solid #374151',
+                                borderRadius: '8px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
+                          {muscleGroupData.map((muscle) => (
+                            <div key={muscle.name} className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: muscle.color }}></div>
+                              <span className="text-xs md:text-sm text-muted-foreground truncate">{muscle.name}: {muscle.sets}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Personal Record Progression */}
                 <Card className="card-elevated">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>Personal Record Progression</CardTitle>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <CardTitle className="text-base md:text-lg">PR Progression</CardTitle>
                       <Select value={selectedExerciseForPR} onValueChange={setSelectedExerciseForPR}>
-                        <SelectTrigger className="w-[200px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                           <SelectValue placeholder="Select exercise" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Exercises</SelectItem>
-                          <SelectItem value="benchPress">Bench Press</SelectItem>
-                          <SelectItem value="squat">Squat</SelectItem>
-                          <SelectItem value="deadlift">Deadlift</SelectItem>
-                          <SelectItem value="overheadPress">Overhead Press</SelectItem>
+                          {availableExercises.slice(0, 4).map((exercise) => (
+                            <SelectItem key={exercise} value={exercise}>{exercise}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <LineChart data={prProgressionData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
-                        />
-                        <YAxis 
-                          stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
-                          label={{ value: `Weight (${preferences.weightUnit})`, angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
-                        />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1F2937', 
-                        border: '1px solid #374151',
-                        borderRadius: '8px'
-                      }}
-                      labelStyle={{ color: '#F3F4F6' }}
-                    />
-                    <Legend />
-                    {(selectedExerciseForPR === 'all' || selectedExerciseForPR === 'benchPress') && (
-                      <Line 
-                        type="monotone" 
-                        dataKey="benchPress" 
-                        stroke="#3B82F6" 
-                        strokeWidth={2}
-                        dot={{ fill: '#3B82F6', r: 4 }}
-                        name="Bench Press"
-                      />
+                    {prProgressionData.length === 0 || personalRecords.length === 0 ? (
+                      <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                        <p className="text-sm">Complete workouts to see PR progression</p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={280}>
+                        <LineChart data={prProgressionData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis 
+                            dataKey="date" 
+                            stroke="#9CA3AF"
+                            tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                            tickFormatter={(value) => {
+                              const date = new Date(value);
+                              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            }}
+                          />
+                          <YAxis 
+                            stroke="#9CA3AF"
+                            tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                            width={60}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#1F2937', 
+                              border: '1px solid #374151',
+                              borderRadius: '8px',
+                              fontSize: '14px'
+                            }}
+                            labelStyle={{ color: '#F3F4F6' }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: '11px' }} />
+                          {(selectedExerciseForPR === 'all' ? personalRecords.slice(0, 4) : personalRecords.filter(pr => pr.exercise === selectedExerciseForPR)).map((pr, idx) => {
+                            const colors = ['#3B82F6', '#10B981', '#EF4444', '#F59E0B'];
+                            return (
+                              <Line 
+                                key={pr.exercise}
+                                type="monotone" 
+                                dataKey={pr.exercise} 
+                                stroke={colors[idx % colors.length]} 
+                                strokeWidth={2}
+                                dot={{ fill: colors[idx % colors.length], r: 3 }}
+                                name={pr.exercise}
+                              />
+                            );
+                          })}
+                        </LineChart>
+                      </ResponsiveContainer>
                     )}
-                    {(selectedExerciseForPR === 'all' || selectedExerciseForPR === 'squat') && (
-                      <Line 
-                        type="monotone" 
-                        dataKey="squat" 
-                        stroke="#10B981" 
-                        strokeWidth={2}
-                        dot={{ fill: '#10B981', r: 4 }}
-                        name="Squat"
-                      />
-                    )}
-                    {(selectedExerciseForPR === 'all' || selectedExerciseForPR === 'deadlift') && (
-                      <Line 
-                        type="monotone" 
-                        dataKey="deadlift" 
-                        stroke="#EF4444" 
-                        strokeWidth={2}
-                        dot={{ fill: '#EF4444', r: 4 }}
-                        name="Deadlift"
-                      />
-                    )}
-                    {(selectedExerciseForPR === 'all' || selectedExerciseForPR === 'overheadPress') && (
-                      <Line 
-                        type="monotone" 
-                        dataKey="overheadPress" 
-                        stroke="#F59E0B" 
-                        strokeWidth={2}
-                        dot={{ fill: '#F59E0B', r: 4 }}
-                        name="Overhead Press"
-                      />
-                    )}
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
                 {/* Workout Duration Trends */}
                 <Card className="card-elevated">
                   <CardHeader>
-                    <CardTitle>Workout Duration Trends</CardTitle>
+                    <CardTitle className="text-base md:text-lg">Workout Duration Trends</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={280}>
-                      <LineChart data={durationData}>
+                      <LineChart data={durationData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis 
-                          dataKey="week" 
+                          dataKey="date" 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return period === 'month' 
+                              ? date.toLocaleDateString('en-US', { month: 'short' })
+                              : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          }}
                         />
                         <YAxis 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
-                          label={{ value: 'Duration (min)', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          width={50}
                         />
-                            <Tooltip 
+                        <Tooltip 
                           contentStyle={{ 
                             backgroundColor: '#1F2937', 
                             border: '1px solid #374151',
-                            borderRadius: '8px'
+                            borderRadius: '8px',
+                            fontSize: '14px'
                           }}
                           labelStyle={{ color: '#F3F4F6' }}
+                          formatter={(value: any) => [`${value} min`, 'Duration']}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
                         <Line 
                           type="monotone" 
                           dataKey="duration" 
                           stroke="#10B981" 
                           strokeWidth={3}
-                          dot={{ fill: '#10B981', r: 5 }}
-                          activeDot={{ r: 7 }}
+                          dot={{ fill: '#10B981', r: 4 }}
+                          activeDot={{ r: 6 }}
                           name="Avg Duration (min)"
                         />
                       </LineChart>
@@ -472,31 +605,38 @@ const Stats = () => {
                 {/* Average Sets per Workout (Workout Intensity) */}
                 <Card className="card-elevated">
                   <CardHeader>
-                    <CardTitle>Workout Intensity</CardTitle>
+                    <CardTitle className="text-base md:text-lg">Workout Intensity</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={avgSetsData}>
+                      <BarChart data={avgSetsData} margin={{ left: 0, right: 10, top: 5, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis 
-                          dataKey="week" 
+                          dataKey="date" 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return period === 'month' 
+                              ? date.toLocaleDateString('en-US', { month: 'short' })
+                              : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          }}
                         />
                         <YAxis 
                           stroke="#9CA3AF"
-                          tick={{ fill: '#9CA3AF' }}
-                          label={{ value: 'Avg Sets', angle: -90, position: 'insideLeft', fill: '#9CA3AF' }}
+                          tick={{ fill: '#9CA3AF', fontSize: 12 }}
+                          width={40}
                         />
                         <Tooltip 
                           contentStyle={{ 
                             backgroundColor: '#1F2937', 
                             border: '1px solid #374151',
-                            borderRadius: '8px'
+                            borderRadius: '8px',
+                            fontSize: '14px'
                           }}
                           labelStyle={{ color: '#F3F4F6' }}
                         />
-                        <Legend />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
                         <Bar 
                           dataKey="avgSets" 
                           fill="#EC4899" 
@@ -511,7 +651,7 @@ const Stats = () => {
                 {/* Milestone Counters */}
                 <Card className="card-elevated lg:col-span-2 bg-gradient-to-br from-primary/5 via-background to-accent/5 border-2">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                       <Trophy className="h-5 w-5 text-amber-500" />
                       Milestones
                     </CardTitle>
@@ -523,25 +663,25 @@ const Stats = () => {
                         <div className="flex items-center justify-center">
                           <div className="relative">
                             {/* Circular progress background */}
-                            <svg className="w-40 h-40 transform -rotate-90">
+                            <svg className="w-32 h-32 md:w-40 md:h-40 transform -rotate-90">
                               <circle
-                                cx="80"
-                                cy="80"
-                                r="70"
+                                cx="50%"
+                                cy="50%"
+                                r="60"
                                 stroke="currentColor"
-                                strokeWidth="12"
+                                strokeWidth="10"
                                 fill="none"
                                 className="text-muted/30"
                               />
                               <circle
-                                cx="80"
-                                cy="80"
-                                r="70"
+                                cx="50%"
+                                cy="50%"
+                                r="60"
                                 stroke="url(#repsGradient)"
-                                strokeWidth="12"
+                                strokeWidth="10"
                                 fill="none"
-                                strokeDasharray={`${2 * Math.PI * 70}`}
-                                strokeDashoffset={`${2 * Math.PI * 70 * (1 - (totalReps / repsNextMilestone))}`}
+                                strokeDasharray={`${2 * Math.PI * 60}`}
+                                strokeDashoffset={`${2 * Math.PI * 60 * (1 - (totalReps / repsNextMilestone))}`}
                                 className="transition-all duration-1000 ease-out"
                                 strokeLinecap="round"
                               />
@@ -554,8 +694,8 @@ const Stats = () => {
                             </svg>
                             {/* Center content */}
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <Zap className="h-8 w-8 text-primary mb-2 animate-pulse" />
-                              <p className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                              <Zap className="h-6 w-6 md:h-8 md:w-8 text-primary mb-2 animate-pulse" />
+                              <p className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                                 {totalReps.toLocaleString()}
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">reps</p>
@@ -568,7 +708,7 @@ const Stats = () => {
                             <p className="text-sm font-medium">Total Reps Completed</p>
                           </div>
                           <div className="bg-muted/50 rounded-xl p-3 space-y-2">
-                            <div className="flex justify-between text-sm">
+                            <div className="flex justify-between text-xs md:text-sm">
                               <span className="text-muted-foreground">Next milestone</span>
                               <span className="font-bold text-primary">{repsNextMilestone.toLocaleString()}</span>
                             </div>
@@ -587,7 +727,7 @@ const Stats = () => {
                             </p>
                           </div>
                           <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            {((totalReps / repsNextMilestone) * 100).toFixed(1)}% Complete
+                            {Math.min(100, ((totalReps / repsNextMilestone) * 100)).toFixed(1)}% Complete
                           </div>
                         </div>
                       </div>
@@ -597,25 +737,25 @@ const Stats = () => {
                         <div className="flex items-center justify-center">
                           <div className="relative">
                             {/* Circular progress background */}
-                            <svg className="w-40 h-40 transform -rotate-90">
+                            <svg className="w-32 h-32 md:w-40 md:h-40 transform -rotate-90">
                               <circle
-                                cx="80"
-                                cy="80"
-                                r="70"
+                                cx="50%"
+                                cy="50%"
+                                r="60"
                                 stroke="currentColor"
-                                strokeWidth="12"
+                                strokeWidth="10"
                                 fill="none"
                                 className="text-muted/30"
                               />
                               <circle
-                                cx="80"
-                                cy="80"
-                                r="70"
+                                cx="50%"
+                                cy="50%"
+                                r="60"
                                 stroke="url(#weightGradient)"
-                                strokeWidth="12"
+                                strokeWidth="10"
                                 fill="none"
-                                strokeDasharray={`${2 * Math.PI * 70}`}
-                                strokeDashoffset={`${2 * Math.PI * 70 * (1 - (totalWeight / weightNextMilestone))}`}
+                                strokeDasharray={`${2 * Math.PI * 60}`}
+                                strokeDashoffset={`${2 * Math.PI * 60 * (1 - (totalWeight / weightNextMilestone))}`}
                                 className="transition-all duration-1000 ease-out"
                                 strokeLinecap="round"
                               />
@@ -628,8 +768,8 @@ const Stats = () => {
                             </svg>
                             {/* Center content */}
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <Trophy className="h-8 w-8 text-accent mb-2 animate-pulse" />
-                              <p className="text-3xl font-bold bg-gradient-to-r from-accent to-pink-500 bg-clip-text text-transparent">
+                              <Trophy className="h-6 w-6 md:h-8 md:w-8 text-accent mb-2 animate-pulse" />
+                              <p className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-accent to-pink-500 bg-clip-text text-transparent">
                                 {(totalWeight / 1000).toFixed(1)}K
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">{preferences.weightUnit}</p>
@@ -642,7 +782,7 @@ const Stats = () => {
                             <p className="text-sm font-medium">Total Weight Lifted</p>
                           </div>
                           <div className="bg-muted/50 rounded-xl p-3 space-y-2">
-                            <div className="flex justify-between text-sm">
+                            <div className="flex justify-between text-xs md:text-sm">
                               <span className="text-muted-foreground">Next milestone</span>
                               <span className="font-bold text-accent">{(weightNextMilestone / 1000).toFixed(0)}K {preferences.weightUnit}</span>
                             </div>
@@ -661,7 +801,7 @@ const Stats = () => {
                             </p>
                           </div>
                           <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
-                            {((totalWeight / weightNextMilestone) * 100).toFixed(1)}% Complete
+                            {Math.min(100, ((totalWeight / weightNextMilestone) * 100)).toFixed(1)}% Complete
                           </div>
                         </div>
                       </div>
@@ -673,45 +813,54 @@ const Stats = () => {
               {/* Personal Records */}
               <Card className="card-elevated bg-gradient-to-br from-amber-500/5 via-background to-orange-500/5 border-2">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                     <Award className="h-5 w-5 text-amber-500" />
-                    Personal Records
+                    Personal Records (Estimated 1RM)
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {personalRecords.map((record, index) => (
-                      <div
-                        key={index}
-                        className="relative flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 transition-all duration-300 border border-muted hover:border-primary/50 group hover:scale-[1.02] hover:shadow-lg"
-                      >
-                        {/* Icon badge */}
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/30 group-hover:scale-110 transition-transform">
-                          <Trophy className="h-6 w-6 text-primary" />
+                  {personalRecords.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Trophy className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm md:text-base">No personal records yet. Complete workouts to track your progress!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {personalRecords.map((record, index) => (
+                        <div
+                          key={index}
+                          className="relative flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl bg-gradient-to-r from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 transition-all duration-300 border border-muted hover:border-primary/50 group hover:scale-[1.02] hover:shadow-lg"
+                        >
+                          {/* Icon badge */}
+                          <div className="flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/30 group-hover:scale-110 transition-transform flex-shrink-0">
+                            <Trophy className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                          </div>
+                          
+                          {/* Exercise info */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-base md:text-lg truncate">{record.exercise}</h3>
+                            <p className="text-xs md:text-sm text-muted-foreground">{record.date}</p>
+                          </div>
+                          {/* Weight and reps */}
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                              {record.weight}
+                            </p>
+                            <p className="text-xs md:text-sm text-muted-foreground font-medium">{preferences.weightUnit}</p>
+                          </div>
+                          
+                          {/* Sparkle effect on hover */}
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Star className="h-3 w-3 md:h-4 md:w-4 text-amber-500 animate-pulse" />
+                          </div>
                         </div>
-                        
-                        {/* Exercise info */}
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg">{record.exercise}</h3>
-                          <p className="text-sm text-muted-foreground">{record.date}</p>
-                        </div>
-                        {/* Weight and reps */}
-                        <div className="text-right">
-                          <p className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                            {record.weight} {preferences.weightUnit}
-                          </p>
-                          <p className="text-sm text-muted-foreground font-medium">{record.reps} reps</p>
-                        </div>
-                        
-                        {/* Sparkle effect on hover */}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Star className="h-4 w-4 text-amber-500 animate-pulse" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+              </>
+              )}
             </TabsContent>
 
           {/* Streaks Tab */}

@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { saveWorkout, formatWorkoutDate } from '@/lib/workoutStorage';
 import { updateStreakOnWorkout } from '@/lib/streakStorage';
 import { invalidateWorkoutCache } from '@/services/workoutHistoryService';
+import { statsService } from '@/services/statsService';
 import * as liveWorkoutService from '@/services/liveWorkoutService';
 import PageHeader from '@/components/PageHeader';
 import { useWorkout } from '@/contexts/WorkoutContext';
@@ -19,6 +20,7 @@ import ExerciseSelector from '@/components/ExerciseSelector';
 import type { Exercise as ExerciseSelectorType } from '@/components/ExerciseSelector';
 import { STORAGE_KEYS } from '@/core/constants/AppConstants';
 import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
+import { exerciseService } from '@/services/exerciseService';
 
 interface Exercise {
   id: string;
@@ -40,7 +42,7 @@ const Workout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { preferences } = usePreferences();
+  const { preferences, convertWeight } = usePreferences();
   const { activeWorkout, startWorkout, updateWorkout, endWorkout } = useWorkout();
   
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -66,13 +68,53 @@ const Workout = () => {
   const [workoutNumber, setWorkoutNumber] = useState(1);
   const [workoutName, setWorkoutName] = useState<string>('');
   const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Exercise library state
+  const [allExercises, setAllExercises] = useState<ExerciseSelectorType[]>([]);
+  const [exercisesLoading, setExercisesLoading] = useState(true);
+
+  // Load exercises from API
+  useEffect(() => {
+    const loadExercises = async () => {
+      try {
+        setExercisesLoading(true);
+        const apiExercises = await exerciseService.getAllExercises();
+        
+        // Transform API data to match ExerciseSelector format
+        const transformed = apiExercises.map(ex => ({
+          id: String(ex.id),
+          name: ex.name,
+          category: ex.category,
+          muscleGroup: ex.muscle_group.replace(' ', ''), // "Full Body" -> "FullBody"
+          difficulty: ex.difficulty
+        }));
+        
+        setAllExercises(transformed);
+      } catch (error) {
+        console.error('Failed to load exercises:', error);
+        toast({
+          title: "Error Loading Exercises",
+          description: "Failed to load exercise library. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setExercisesLoading(false);
+      }
+    };
+    
+    loadExercises();
+  }, []);
 
   // Load active workout from context or start new one
   useEffect(() => {
     const initializeWorkout = async () => {
       setIsInitializing(true);
       
-      if (activeWorkout) {
+      const clearDraft = location.state?.clearDraft;
+      const template = location.state?.template;
+      
+      // Only resume if there's an active workout AND we're not explicitly starting a new one
+      if (activeWorkout && !clearDraft) {
         // Resume existing workout
         setExercises(activeWorkout.exercises);
         // Calculate elapsed time from start time instead of using stored value
@@ -85,7 +127,6 @@ const Workout = () => {
         setIsInitializing(false);
       } else {
         // Start new workout
-        const template = location.state?.template;
         let initialExercises: Exercise[] = [];
         
         try {
@@ -200,74 +241,6 @@ const Workout = () => {
   const popularExercises = [
     'Bench Press', 'Squat', 'Deadlift', 'Overhead Press',
     'Pull-ups', 'Rows', 'Bicep Curls', 'Tricep Extensions'
-  ];
-
-  // Full exercise library for selection
-  const allExercises: ExerciseSelectorType[] = [
-    // Chest
-    { id: '1', name: 'Barbell Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate' },
-    { id: '2', name: 'Incline Barbell Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate' },
-    { id: '3', name: 'Flat Dumbbell Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '4', name: 'Incline Dumbbell Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '5', name: 'Decline Bench Press', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Intermediate' },
-    { id: '6', name: 'Chest Dips', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Advanced' },
-    { id: '7', name: 'Cable Fly', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '8', name: 'Incline Cable Fly', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '9', name: 'Pec Deck Machine', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    { id: '10', name: 'Push-Ups', category: 'Strength', muscleGroup: 'Chest', difficulty: 'Beginner' },
-    
-    // Back
-    { id: '11', name: 'Deadlift', category: 'Strength', muscleGroup: 'Back', difficulty: 'Advanced' },
-    { id: '12', name: 'Pull-Ups', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate' },
-    { id: '13', name: 'Chin-Ups', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate' },
-    { id: '14', name: 'Lat Pulldown', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner' },
-    { id: '15', name: 'Barbell Bent-Over Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate' },
-    { id: '16', name: 'T-Bar Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Intermediate' },
-    { id: '17', name: 'Seated Cable Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner' },
-    { id: '18', name: 'Single-Arm Dumbbell Row', category: 'Strength', muscleGroup: 'Back', difficulty: 'Beginner' },
-    
-    // Legs
-    { id: '21', name: 'Barbell Back Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '22', name: 'Barbell Front Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Advanced' },
-    { id: '23', name: 'Leg Press', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '24', name: 'Romanian Deadlift', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '25', name: 'Bulgarian Split Squat', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '26', name: 'Walking Lunges', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '27', name: 'Leg Extensions', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '28', name: 'Hamstring Curls', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '29', name: 'Hip Thrusts', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Intermediate' },
-    { id: '30', name: 'Calf Raises', category: 'Strength', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    
-    // Shoulders
-    { id: '33', name: 'Overhead Barbell Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Intermediate' },
-    { id: '34', name: 'Dumbbell Shoulder Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    { id: '35', name: 'Arnold Press', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Intermediate' },
-    { id: '36', name: 'Lateral Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    { id: '37', name: 'Front Raises', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    { id: '38', name: 'Rear Delt Fly', category: 'Strength', muscleGroup: 'Shoulders', difficulty: 'Beginner' },
-    
-    // Arms
-    { id: '41', name: 'Barbell Bicep Curl', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '42', name: 'Hammer Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '43', name: 'Preacher Curls', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '44', name: 'Tricep Dips', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate' },
-    { id: '45', name: 'Tricep Pushdowns', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '46', name: 'Overhead Tricep Extension', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Beginner' },
-    { id: '47', name: 'Skull Crushers', category: 'Strength', muscleGroup: 'Arms', difficulty: 'Intermediate' },
-    
-    // Core
-    { id: '51', name: 'Plank', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner' },
-    { id: '52', name: 'Russian Twists', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner' },
-    { id: '53', name: 'Bicycle Crunches', category: 'Strength', muscleGroup: 'Core', difficulty: 'Beginner' },
-    { id: '54', name: 'Hanging Leg Raises', category: 'Strength', muscleGroup: 'Core', difficulty: 'Advanced' },
-    { id: '55', name: 'Ab Wheel Rollout', category: 'Strength', muscleGroup: 'Core', difficulty: 'Intermediate' },
-    
-    // Cardio
-    { id: '61', name: 'Running', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Beginner' },
-    { id: '62', name: 'Cycling', category: 'Cardio', muscleGroup: 'Legs', difficulty: 'Beginner' },
-    { id: '63', name: 'Rowing', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Intermediate' },
-    { id: '64', name: 'Jump Rope', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Beginner' },
-    { id: '65', name: 'Burpees', category: 'Cardio', muscleGroup: 'Full Body', difficulty: 'Intermediate' },
   ];
 
   const motivationalMessages = [
@@ -533,9 +506,14 @@ const Workout = () => {
         // Add all completed sets for this exercise
         for (const set of exercise.sets) {
           if (set.completed) {
+            // Convert weight to lbs if user preference is kg (backend stores in lbs)
+            const weightInLbs = preferences.weightUnit === 'kg' 
+              ? (parseFloat(set.weight || '0') * 2.20462).toString()
+              : set.weight || '0';
+            
             await liveWorkoutService.addSet(backendExerciseId, {
               reps: set.reps || '0',
-              weight: set.weight || '0',
+              weight: weightInLbs,
               rpe: set.rpe || null,
               completed: true, // CRITICAL: Mark as completed for backend analytics
               is_warmup: set.isWarmup || false,
@@ -575,6 +553,9 @@ const Workout = () => {
       
       // Invalidate workout cache so fresh data is fetched
       invalidateWorkoutCache();
+      
+      // Invalidate stats cache to refresh stats with new workout data
+      statsService.invalidate();
       
       // Clear active workout from context
       endWorkout();

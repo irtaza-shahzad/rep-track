@@ -28,7 +28,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { preferences, convertWeight } = usePreferences();
-  const { activeWorkout, hasActiveWorkout } = useWorkout();
+  const { activeWorkout, hasActiveWorkout, endWorkout } = useWorkout();
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
@@ -137,17 +137,30 @@ const Dashboard = () => {
 
   const handleStartEmpty = () => {
     setShowStartDialog(false);
-    navigate('/workout', { state: { template: null } });
+    // Clear any existing workout draft before starting fresh
+    endWorkout();
+    // Small delay to ensure dialog unmounts and cleans up scroll lock before navigation
+    setTimeout(() => {
+      navigate('/workout', { state: { template: null, clearDraft: true } });
+    }, 50);
   };
 
   const handleStartFromTemplate = () => {
     setShowStartDialog(false);
-    setShowTemplatePicker(true);
+    // Small delay before showing next dialog
+    setTimeout(() => {
+      setShowTemplatePicker(true);
+    }, 100);
   };
 
   const handleSelectTemplate = (template: WorkoutTemplate) => {
     setShowTemplatePicker(false);
-    navigate('/workout', { state: { template } });
+    // Clear any existing workout draft before starting from template
+    endWorkout();
+    // Small delay to ensure dialog unmounts and cleans up scroll lock before navigation
+    setTimeout(() => {
+      navigate('/workout', { state: { template, clearDraft: true } });
+    }, 50);
   };
 
   // Don't show dashboard if workout is active
