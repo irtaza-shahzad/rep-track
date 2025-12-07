@@ -1,5 +1,8 @@
 import { api } from './api';
 import { authStorage } from '../infrastructure/storage/LocalStorageAdapter';
+import { statsService } from './statsService';
+import { invalidateWorkoutCache } from './workoutHistoryService';
+import { workoutDraftStorage } from '../infrastructure/storage/LocalStorageAdapter';
 
 export interface LoginRequest {
     email: string;
@@ -37,6 +40,11 @@ export const authService = {
         authStorage.setToken(responseData.access_token);
         authStorage.setUser(responseData.user);
 
+        // Invalidate any cached data from previous user
+        statsService.invalidate();
+        invalidateWorkoutCache();
+        workoutDraftStorage.clearDraft(); // Clear any workout draft from previous user
+
         return responseData;
     },
 
@@ -50,6 +58,11 @@ export const authService = {
         // DO NOT store token/user - user needs to login after registration
         // This ensures proper authentication flow
 
+        // Invalidate any cached data from previous user
+        statsService.invalidate();
+        invalidateWorkoutCache();
+        workoutDraftStorage.clearDraft(); // Clear any workout draft from previous user
+
         return responseData;
     },
 
@@ -59,6 +72,11 @@ export const authService = {
         // This includes: auth token, user data, workout drafts, preferences,
         // streak configs, and all cached API data
         authStorage.clearAuth();
+
+        // Invalidate any cached API data
+        statsService.invalidate();
+        invalidateWorkoutCache();
+        workoutDraftStorage.clearDraft(); // Explicitly clear workout draft
 
         // Note: WorkoutContext will automatically clear when the app re-renders
         // after navigation to login, as it loads from localStorage (now empty)

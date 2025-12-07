@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { STORAGE_KEYS } from '../core/constants/AppConstants';
-import { workoutDraftStorage, storageAdapter } from '../infrastructure/storage/LocalStorageAdapter';
+import { workoutDraftStorage, storageAdapter, authStorage } from '../infrastructure/storage/LocalStorageAdapter';
 
 // @refresh reset
 // This file exports both a Provider component and a custom hook,
@@ -43,14 +43,37 @@ const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
 
 export const WorkoutProvider = ({ children }: { children: ReactNode }) => {
   const [activeWorkout, setActiveWorkout] = useState<WorkoutState | null>(() => {
-    // Load from localStorage on mount
-    return workoutDraftStorage.getDraft();
+    // Only load from localStorage if user is authenticated
+    // This prevents loading old user's workout draft after logout/login
+    if (authStorage.isAuthenticated()) {
+      const draft = workoutDraftStorage.getDraft();
+      const currentUser = authStorage.getUser();
+      
+      // Verify the draft belongs to the current user
+      if (draft && currentUser) {
+        // If draft has userId, validate it matches current user
+        if (draft.userId && draft.userId !== currentUser.id) {
+          // Draft belongs to different user, clear it
+          workoutDraftStorage.clearDraft();
+          return null;
+        }
+      }
+      
+      return draft;
+    }
+    return null;
   });
 
   // Persist to localStorage whenever activeWorkout changes
   useEffect(() => {
     if (activeWorkout) {
-      workoutDraftStorage.saveDraft(activeWorkout);
+      const currentUser = authStorage.getUser();
+      // Store workout with user ID for validation
+      const draftWithUserId = {
+        ...activeWorkout,
+        userId: currentUser?.id
+      };
+      workoutDraftStorage.saveDraft(draftWithUserId);
     } else {
       workoutDraftStorage.clearDraft();
     }

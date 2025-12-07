@@ -26,9 +26,9 @@ let _cache: { summary?: Summary } = {};
 
 export const statsService = {
     async getSummary(): Promise<Summary> {
-        if (_cache.summary) return _cache.summary;
+        // Always fetch fresh data - don't use cache
+        // Stats change frequently after workouts, so caching causes stale data issues
         const res = await api.get('/api/stats/summary');
-        _cache.summary = res.data;
         return res.data;
     },
     async getTimeseries(period: 'day' | 'week' | 'month', from: string, to: string): Promise<TimeseriesPoint[]> {
@@ -36,6 +36,7 @@ export const statsService = {
         return res.data;
     },
     invalidate() {
-        _cache = {};
+        // No-op since we removed caching
+        // Kept for backward compatibility
     }
 };

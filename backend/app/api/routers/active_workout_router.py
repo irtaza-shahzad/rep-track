@@ -10,6 +10,7 @@ from typing import List
 from app.core.database import get_db
 from app.api.services.auth_service import get_current_user
 from app.models.user_model import User
+from app.api.services import streak_service
 from app.api.schemas.workout_schema import (
     StartWorkoutRequest,
     UpdateWorkoutRequest,
@@ -267,6 +268,7 @@ def finish_workout(
     - Computes total volume, sets, reps
     - Persists to workout history
     - Clears active workout status
+    - Logs workout to user's streak (if streak is started)
     
     - **workout_name**: Optional final name for the workout
     
@@ -274,6 +276,13 @@ def finish_workout(
     - 404: No active workout found
     """
     workout = active_workout_service.finish_workout(db, current_user.id, data)
+    
+    # Log workout to streak (silently fails if user hasn't started streak)
+    try:
+        streak_service.log_workout(db, current_user.id)
+    except Exception as e:
+        # Don't fail workout completion if streak logging fails
+        print(f"Failed to log workout to streak: {e}")
     
     # Build response
     exercises = []

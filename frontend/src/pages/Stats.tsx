@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TrendingUp, Calendar, Target, Flame, Award, Trophy, Medal, Zap, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -8,15 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import Layout from '@/components/Layout';
-import { getStreakConfig, initializeStreak, getCurrentWeekProgress } from '@/lib/streakStorage';
+import { getMyStreak, startStreak, updateTargetDays, type Streak } from '@/services/streakService';
 import PageHeader from '@/components/PageHeader';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { statsService, Summary, TimeseriesPoint } from '@/services/statsService';
+import { formatLargeNumber, formatWeight } from '@/lib/numberFormat';
+import { useToast } from '@/hooks/use-toast';
 
 const Stats = () => {
-  const [streakConfig, setStreakConfig] = useState(getStreakConfig());
+  const location = useLocation();
+  const { toast } = useToast();
+  const [streak, setStreak] = useState<Streak | null>(null);
   const [showStreakSetup, setShowStreakSetup] = useState(false);
-  const [targetDays, setTargetDays] = useState(4);
+  const [targetDays, setTargetDays] = useState(3);
   const [dateRange, setDateRange] = useState('90'); // 90 days default
   const [selectedExerciseForPR, setSelectedExerciseForPR] = useState<string>('all');
   const { preferences, convertWeight } = usePreferences();
@@ -56,6 +61,10 @@ const Stats = () => {
         // Fetch timeseries
         const timeseries = await statsService.getTimeseries(period, fromDate, toDate);
         setTimeseriesData(timeseries);
+
+        // Fetch streak
+        const streakData = await getMyStreak().catch(() => null);
+        setStreak(streakData);
       } catch (err) {
         console.error('Failed to fetch stats:', err);
         setError('Failed to load stats data');
@@ -65,7 +74,7 @@ const Stats = () => {
     };
     
     fetchData();
-  }, [dateRange, period]);
+  }, [dateRange, period, location.pathname]);
   
   // Transform timeseries data for charts
   const volumeData = timeseriesData.map(point => ({
@@ -194,8 +203,9 @@ const Stats = () => {
     : '0.0';
   
   // Calculate consistency (% of expected workouts completed in filtered range)
-  // Assuming 4 workouts per week as target
-  const expectedWorkouts = (parseInt(dateRange) / 7) * 4; // Use exact division, not ceiling
+  // Use user's streak target if available, otherwise default to 4 workouts per week
+  const targetWorkoutsPerWeek = streak?.target_days_per_week || 4;
+  const expectedWorkouts = (parseInt(dateRange) / 7) * targetWorkoutsPerWeek;
   const consistency = expectedWorkouts > 0
     ? Math.min(100, Math.round((filteredTotalWorkouts / expectedWorkouts) * 100))
     : 0;
@@ -232,13 +242,35 @@ const Stats = () => {
     setShowStreakSetup(true);
   };
 
-  const handleSetupStreak = () => {
-    const config = initializeStreak(targetDays);
-    setStreakConfig(config);
-    setShowStreakSetup(false);
-  };
+  const handleSetupStreak = async () => {
+    // Validate target days
+    if (targetDays < 1 || targetDays > 7 || !Number.isInteger(targetDays)) {
+      toast({
+        title: 'Invalid Goal',
+        description: 'Please enter a number between 1 and 7 days per week.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-  const currentWeekProgress = getCurrentWeekProgress();
+    try {
+      const newStreak = await startStreak(targetDays);
+      setStreak(newStreak);
+      setShowStreakSetup(false);
+      toast({
+        title: 'Streak Started!',
+        description: `Your ${targetDays} days/week goal is now active.`,
+      });
+    } catch (err: any) {
+      console.error('Failed to start streak:', err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message || 'Failed to start streak. Please try again.';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <Layout>
@@ -710,7 +742,7 @@ const Stats = () => {
                           <div className="bg-muted/50 rounded-xl p-3 space-y-2">
                             <div className="flex justify-between text-xs md:text-sm">
                               <span className="text-muted-foreground">Next milestone</span>
-                              <span className="font-bold text-primary">{repsNextMilestone.toLocaleString()}</span>
+                              <span className="font-bold text-primary">{formatLargeNumber(repsNextMilestone)}</span>
                             </div>
                             <div className="h-2 bg-background rounded-full overflow-hidden shadow-inner">
                               <div 
@@ -723,7 +755,7 @@ const Stats = () => {
                               />
                             </div>
                             <p className="text-xs text-center text-muted-foreground font-medium">
-                              <span className="text-primary font-bold">{(repsNextMilestone - totalReps).toLocaleString()}</span> reps remaining
+                              <span className="text-primary font-bold">{formatLargeNumber(repsNextMilestone - totalReps)}</span> reps remaining
                             </p>
                           </div>
                           <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
@@ -770,7 +802,7 @@ const Stats = () => {
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                               <Trophy className="h-6 w-6 md:h-8 md:w-8 text-accent mb-2 animate-pulse" />
                               <p className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-accent to-pink-500 bg-clip-text text-transparent">
-                                {(totalWeight / 1000).toFixed(1)}K
+                                {formatLargeNumber(totalWeight)}
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">{preferences.weightUnit}</p>
                             </div>
@@ -784,7 +816,7 @@ const Stats = () => {
                           <div className="bg-muted/50 rounded-xl p-3 space-y-2">
                             <div className="flex justify-between text-xs md:text-sm">
                               <span className="text-muted-foreground">Next milestone</span>
-                              <span className="font-bold text-accent">{(weightNextMilestone / 1000).toFixed(0)}K {preferences.weightUnit}</span>
+                              <span className="font-bold text-accent">{formatLargeNumber(weightNextMilestone)} {preferences.weightUnit}</span>
                             </div>
                             <div className="h-2 bg-background rounded-full overflow-hidden shadow-inner">
                               <div 
@@ -797,7 +829,7 @@ const Stats = () => {
                               />
                             </div>
                             <p className="text-xs text-center text-muted-foreground font-medium">
-                              <span className="text-accent font-bold">{((weightNextMilestone - totalWeight) / 1000).toFixed(1)}K</span> {preferences.weightUnit} remaining
+                              <span className="text-accent font-bold">{formatLargeNumber(weightNextMilestone - totalWeight)}</span> {preferences.weightUnit} remaining
                             </p>
                           </div>
                           <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
@@ -865,7 +897,11 @@ const Stats = () => {
 
           {/* Streaks Tab */}
           <TabsContent value="streaks">
-            {!streakConfig ? (
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading streaks...</p>
+              </div>
+            ) : !streak ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <Card className="card-elevated max-w-md w-full">
                   <CardContent className="pt-6 text-center">
@@ -887,7 +923,7 @@ const Stats = () => {
                   <CardContent className="pt-6">
                     <div className="text-center">
                       <Flame className="h-20 w-20 mx-auto mb-4 text-accent" />
-                      <h2 className="text-4xl font-bold mb-2">{streakConfig.currentStreak}</h2>
+                      <h2 className="text-4xl font-bold mb-2">{streak.current_streak}</h2>
                       <p className="text-muted-foreground">Day Streak</p>
                     </div>
                   </CardContent>
@@ -902,14 +938,14 @@ const Stats = () => {
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-muted-foreground">Progress</span>
                       <span className="font-semibold">
-                        {currentWeekProgress} / {streakConfig.targetDaysPerWeek} days
+                        {streak.workouts_this_week} / {streak.target_days_per_week} days
                       </span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500"
                         style={{
-                          width: `${Math.min(100, (currentWeekProgress / streakConfig.targetDaysPerWeek) * 100)}%`,
+                          width: `${Math.min(100, (streak.workouts_this_week / streak.target_days_per_week) * 100)}%`,
                         }}
                       />
                     </div>
@@ -926,7 +962,7 @@ const Stats = () => {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Weekly Goal</p>
-                          <p className="text-2xl font-bold">{streakConfig.targetDaysPerWeek} days</p>
+                          <p className="text-2xl font-bold">{streak.target_days_per_week} days</p>
                         </div>
                       </div>
                     </CardContent>
@@ -940,7 +976,7 @@ const Stats = () => {
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Longest Streak</p>
-                          <p className="text-2xl font-bold">{streakConfig.longestStreak} days</p>
+                          <p className="text-2xl font-bold">{streak.longest_streak} days</p>
                         </div>
                       </div>
                     </CardContent>
@@ -966,9 +1002,30 @@ const Stats = () => {
                 min={1}
                 max={7}
                 value={targetDays}
-                onChange={(e) => setTargetDays(Number(e.target.value))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty input for user to type
+                  if (value === '') {
+                    setTargetDays(1);
+                    return;
+                  }
+                  // Parse and validate
+                  const num = parseInt(value);
+                  if (!isNaN(num) && num >= 1 && num <= 7) {
+                    setTargetDays(num);
+                  }
+                }}
+                onKeyPress={(e) => {
+                  // Only allow digits 1-7
+                  if (!/[1-7]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
                 className="text-center text-lg"
               />
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Enter a number between 1 and 7
+              </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowStreakSetup(false)}>

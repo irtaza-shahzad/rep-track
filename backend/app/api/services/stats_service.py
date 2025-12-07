@@ -95,6 +95,13 @@ def _compute_session_metrics(session: WorkoutSession) -> Dict[str, float]:
             weight = float(s.weight) if s.weight else 0.0
         except Exception:
             reps, weight = 0, 0.0
+        
+        # Sanity check: exclude unrealistic weights from volume calculation
+        # Max reasonable single-lift weight: 10,000 lbs (~4,536 kg)
+        # This prevents data errors from corrupting total volume stats
+        if weight > 10000:
+            weight = 0.0
+        
         total_reps += reps
         total_volume += reps * weight
 
@@ -137,9 +144,9 @@ def _update_best_prs(db: Session, stats: UserStats, session: WorkoutSession) -> 
                 reps, weight = 0, 0.0
             
             # Sanity check: filter out unrealistic weights (likely data errors)
-            # Max reasonable single-lift weight: 3000 lbs (allows for powerlifters using kg units)
-            # World record deadlift is ~1100 lbs, so 3000 lbs (1360 kg) gives reasonable headroom
-            if reps <= 0 or weight <= 0 or weight > 3000:
+            # Max reasonable single-lift weight: 10,000 lbs (~4,536 kg)
+            # This matches frontend validation to maintain data integrity
+            if reps <= 0 or weight <= 0 or weight > 10000:
                 continue
             
             # Calculate 1RM estimate

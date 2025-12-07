@@ -131,12 +131,14 @@ const Workout = () => {
         
         try {
           // Check if there's an active workout in the backend
-          const backendWorkout = await liveWorkoutService.getActiveWorkout();
+          let backendWorkout = await liveWorkoutService.getActiveWorkout();
           
-          // If we're coming with a fresh template, cancel any existing workout and start fresh
-          if (template && backendWorkout) {
-            console.log('Cancelling existing workout to start from template');
+          // If we're explicitly starting fresh (clearDraft=true), cancel any existing workout
+          if (clearDraft && backendWorkout) {
+            console.log('Cancelling existing workout to start fresh');
             await liveWorkoutService.cancelWorkout();
+            // Set to null so we don't try to resume it
+            backendWorkout = null;
           }
           
           if (backendWorkout && !template) {
@@ -173,10 +175,13 @@ const Workout = () => {
             console.log('Starting workout with template:', template);
             
             // Create workout in backend
-            const newWorkout = await liveWorkoutService.startWorkout({
-              workout_name: template?.name || '', // Use template name if starting from template
-              template_id: null
-            });
+            const startWorkoutPayload = {
+              workout_name: template?.name || '',
+              template_id: template?.id ? Number(template.id) : null  // Ensure it's a number
+            };
+            console.log('Start workout payload:', startWorkoutPayload);
+            
+            const newWorkout = await liveWorkoutService.startWorkout(startWorkoutPayload);
             
             // If starting from a template, add exercises to backend (in parallel for speed)
             if (template && template.exercises && template.exercises.length > 0) {
@@ -378,6 +383,19 @@ const Workout = () => {
       toast({
         title: "Invalid Input",
         description: "Please enter valid numbers for reps and weight.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Convert weight to lbs for validation (database stores in lbs)
+    const weightInLbs = preferences.weightUnit === 'kg' ? weight * 2.20462 : weight;
+    
+    // Sanity check: prevent unrealistic weights (max 10,000 lbs / ~4,536 kg)
+    if (weightInLbs > 10000) {
+      toast({
+        title: "Unrealistic Weight",
+        description: `Maximum allowed weight is 4,536 kg / 10,000 lbs Please check your input.`,
         variant: "destructive"
       });
       return;
@@ -585,14 +603,28 @@ const Workout = () => {
     navigate('/dashboard', { state: { refreshData: true } });
   };
 
-  const cancelWorkout = () => {
+  const cancelWorkout = async () => {
     if (window.confirm('Are you sure you want to cancel this workout? All progress will be lost.')) {
-      endWorkout();
-      toast({
-        title: "Workout Cancelled",
-        description: "Your workout has been cancelled without saving.",
-      });
-      navigate('/dashboard');
+      try {
+        // Cancel the workout in the backend (deletes it completely)
+        await liveWorkoutService.cancelWorkout();
+        
+        // Clear frontend state
+        endWorkout();
+        
+        toast({
+          title: "Workout Cancelled",
+          description: "Your workout has been cancelled without saving.",
+        });
+        navigate('/dashboard');
+      } catch (error) {
+        console.error('Failed to cancel workout:', error);
+        toast({
+          title: "Error",
+          description: "Failed to cancel workout. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
