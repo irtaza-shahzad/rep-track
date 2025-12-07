@@ -9,12 +9,14 @@ import { StartWorkoutDialog } from '@/components/StartWorkoutDialog';
 import { TemplatePickerDialog } from '@/components/TemplatePickerDialog';
 import { getWorkoutHistory, getWorkoutStats, formatWorkoutDate, getRelativeDate, type WorkoutHistoryItem, type WorkoutStats } from '@/services/workoutHistoryService';
 import PageHeader from '@/components/PageHeader';
+import { getMyStreak, type Streak } from '@/services/streakService';
 import { useWorkout } from '@/contexts/WorkoutContext';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { useToast } from '@/hooks/use-toast';
 import { STORAGE_KEYS } from '@/core/constants/AppConstants';
 import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
 import { templateService, WorkoutTemplate as APIWorkoutTemplate } from '@/services/templateService';
+import { formatLargeNumber } from '@/lib/numberFormat';
 
 interface WorkoutTemplate {
   id: string;
@@ -37,6 +39,7 @@ const Dashboard = () => {
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<WorkoutStats | null>(null);
+  const [streak, setStreak] = useState<Streak | null>(null);
   const isWorkoutActive = location.state?.workoutActive || false;
 
   // Motivational quotes array
@@ -93,12 +96,14 @@ const Dashboard = () => {
       // If coming from finished workout, force fresh data (bypass cache)
       const shouldForceRefresh = location.state?.refreshData === true;
       
-      const [historyData, statsData] = await Promise.all([
+      const [historyData, statsData, streakData] = await Promise.all([
         getWorkoutHistory(5, 0, shouldForceRefresh), // Force refresh if needed
-        getWorkoutStats(shouldForceRefresh) // Force refresh if needed
+        getWorkoutStats(shouldForceRefresh), // Force refresh if needed
+        getMyStreak() // Get streak from new module
       ]);
       setWorkoutHistory(historyData);
       setStats(statsData);
+      setStreak(streakData);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       toast({
@@ -112,9 +117,15 @@ const Dashboard = () => {
   };
 
   const statsDisplay = stats ? [
-    { label: 'Total Workouts', value: stats.total_workouts.toString(), icon: Target, color: 'text-primary' },
-    { label: 'Current Streak', value: `${stats.current_streak} ${stats.current_streak === 1 ? 'day' : 'days'}`, icon: Flame, color: 'text-accent' },
-    { label: 'Total Volume', value: stats.total_volume >= 1000 ? `${(convertWeight(stats.total_volume, 'lbs') / 1000).toFixed(1)}K ${preferences.weightUnit}` : `${Math.round(convertWeight(stats.total_volume, 'lbs'))} ${preferences.weightUnit}`, icon: TrendingUp, color: 'text-chart-gold' },
+    { label: 'Total Workouts', value: stats.total_workouts.toString(), icon: Target, color: 'text-primary', onClick: undefined },
+    { 
+      label: 'Current Streak', 
+      value: streak ? `${streak.current_streak} ${streak.current_streak === 1 ? 'day' : 'days'}` : 'Not Started',
+      icon: Flame, 
+      color: streak ? 'text-accent' : 'text-muted-foreground',
+      onClick: () => navigate('/stats')
+    },
+    { label: 'Total Volume', value: `${formatLargeNumber(convertWeight(stats.total_volume, 'lbs'))} ${preferences.weightUnit}`, icon: TrendingUp, color: 'text-chart-gold', onClick: undefined },
   ] : [];
 
   const handleWorkoutClick = (workout: WorkoutHistoryItem) => {
@@ -205,24 +216,30 @@ const Dashboard = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              statsDisplay.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <Card key={index} className="card-elevated hover:scale-105 transition-transform">
-                    <CardContent className="p-4">
-                      <div className="flex flex-col items-center text-center gap-2">
-                        <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl bg-muted flex items-center justify-center ${stat.color}`}>
-                          <Icon className="h-5 w-5 md:h-6 md:w-6" />
+              <>
+                {statsDisplay.map((stat, index) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Card 
+                      key={index} 
+                      className={`card-elevated hover:scale-105 transition-transform ${stat.onClick ? 'cursor-pointer' : ''}`}
+                      onClick={stat.onClick}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex flex-col items-center text-center gap-2">
+                          <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl bg-muted flex items-center justify-center ${stat.color}`}>
+                            <Icon className="h-5 w-5 md:h-6 md:w-6" />
+                          </div>
+                          <div>
+                            <p className="text-xl md:text-2xl font-bold mb-0.5">{stat.value}</p>
+                            <p className="text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xl md:text-2xl font-bold mb-0.5">{stat.value}</p>
-                          <p className="text-xs md:text-sm text-muted-foreground leading-tight">{stat.label}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </>
             )}
           </div>
 
@@ -280,7 +297,7 @@ const Dashboard = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">{getRelativeDate(workout.start_time)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{Math.round(convertWeight(workout.total_volume || 0, 'lbs')).toLocaleString()} {preferences.weightUnit}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{formatLargeNumber(Math.round(convertWeight(workout.total_volume || 0, 'lbs')))} {preferences.weightUnit}</p>
                     </div>
                   </div>
                 ))}
@@ -326,7 +343,7 @@ const Dashboard = () => {
                       <CardContent className="pt-4">
                         <div className="text-center">
                           <p className="text-sm text-muted-foreground">Total Volume</p>
-                          <p className="text-2xl font-bold">{Math.round(convertWeight(selectedWorkout.total_volume || 0, 'lbs')).toLocaleString()} {preferences.weightUnit}</p>
+                          <p className="text-2xl font-bold">{formatLargeNumber(Math.round(convertWeight(selectedWorkout.total_volume || 0, 'lbs')))} {preferences.weightUnit}</p>
                         </div>
                       </CardContent>
                     </Card>

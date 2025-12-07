@@ -20,3 +20,5 @@ class User(Base):
     workout_sessions = relationship("WorkoutSession", back_populates="user", cascade="all, delete-orphan")
     
     user_stats = relationship("UserStats", back_populates="user", cascade="all, delete-orphan", uselist=False)
+    
+    streak = relationship("Streak", back_populates="user", uselist=False, cascade="all, delete-orphan")

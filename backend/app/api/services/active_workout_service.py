@@ -507,24 +507,10 @@ def get_workout_stats(db: Session, user_id: int) -> dict:
     total_volume = sum(w.total_volume or 0 for w in completed_workouts)
     total_sets = sum(w.total_sets or 0 for w in completed_workouts)
     
-    # Calculate current streak (simplified - days with workouts)
-    # For production, you'd want more sophisticated streak calculation
-    current_streak = 0
-    if completed_workouts:
-        from datetime import datetime, timedelta
-        today = datetime.now().date()
-        workout_dates = sorted(
-            set(datetime.fromtimestamp(w.start_time / 1000).date() for w in completed_workouts),
-            reverse=True
-        )
-        
-        if workout_dates and workout_dates[0] >= today - timedelta(days=1):
-            current_streak = 1
-            for i in range(1, len(workout_dates)):
-                if workout_dates[i] == workout_dates[i-1] - timedelta(days=1):
-                    current_streak += 1
-                else:
-                    break
+    # Get current streak from new streak module (returns 0 if not started)
+    from app.api.services import streak_service
+    streak = streak_service.get_streak_by_user_id(db, user_id)
+    current_streak = streak.current_streak if streak else 0
     
     return {
         "total_workouts": total_workouts,
