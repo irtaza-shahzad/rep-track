@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Plus, Clock, Calendar, Edit2, Trash2, AlertCircle, CalendarClock, Target, BarChart3, AlertTriangle, Trophy } from 'lucide-react';
+import { Bell, Plus, Clock, Calendar, Edit2, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -28,27 +28,19 @@ import {
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/hooks/use-toast';
-
-interface Reminder {
-  id: number;
-  user_id: number;
-  reminder_type: 'Scheduled' | 'DailyGoal' | 'WeeklyTarget' | 'StreakRisk' | 'Milestone';
-  title: string;
-  description: string | null;
-  scheduled_time: string | null;
-  days_of_week: number[] | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { reminderService, Reminder, ReminderCreate } from '@/services/reminderService';
 
 const Reminders = () => {
   const { toast } = useToast();
+  const { formatTime, preferences } = usePreferences();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -60,6 +52,35 @@ const Reminders = () => {
     is_active: true,
   });
 
+  // Helper: Convert 12h time to 24h format for backend storage
+  const convertTo24h = (time12h: string): string => {
+    if (!time12h.includes('AM') && !time12h.includes('PM')) {
+      // Already 24h format
+      return time12h;
+    }
+    
+    const [time, period] = time12h.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    
+    if (period === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
+  // Helper: Parse time input (handles both 12h and 24h)
+  const parseTimeInput = (value: string): string => {
+    // If user's preference is 24h, value is already in 24h format
+    if (preferences.timeFormat === '24h') {
+      return value;
+    }
+    // For 12h preference with time picker, convert to 24h for storage
+    return convertTo24h(value);
+  };
+
   const daysOfWeek = [
     { value: 0, label: 'Sun' },
     { value: 1, label: 'Mon' },
@@ -70,46 +91,36 @@ const Reminders = () => {
     { value: 6, label: 'Sat' },
   ];
 
-  const reminderTypes = [
-    { value: 'Scheduled', label: 'Scheduled', icon: CalendarClock, description: 'Custom time and days' },
-    { value: 'DailyGoal', label: 'Daily Goal', icon: Target, description: 'If no workout logged today' },
-    { value: 'WeeklyTarget', label: 'Weekly Target', icon: BarChart3, description: 'Check weekly progress' },
-    { value: 'StreakRisk', label: 'Streak Risk', icon: AlertTriangle, description: 'Maintain your streak' },
-    { value: 'Milestone', label: 'Milestone', icon: Trophy, description: 'Celebration alerts' },
-  ];
-
-  // Mock data - Replace with API calls
+  // Load reminders from API
   useEffect(() => {
-    // TODO: Fetch reminders from backend
-    // GET /reminders
-    const mockReminders: Reminder[] = [
-      {
-        id: 1,
-        user_id: 1,
-        reminder_type: 'Scheduled',
-        title: 'Evening Workout',
-        description: 'Time to hit the gym!',
-        scheduled_time: '18:30',
-        days_of_week: [1, 3, 5],
-        is_active: true,
-        created_at: '2025-11-21T10:00:00Z',
-        updated_at: '2025-11-21T10:00:00Z',
-      },
-      {
-        id: 2,
-        user_id: 1,
-        reminder_type: 'DailyGoal',
-        title: "Don't forget to log your workout",
-        description: null,
-        scheduled_time: null,
-        days_of_week: null,
-        is_active: true,
-        created_at: '2025-11-21T11:00:00Z',
-        updated_at: '2025-11-21T11:00:00Z',
-      },
-    ];
-    setReminders(mockReminders);
+    loadReminders();
   }, []);
+
+  const loadReminders = async (forceRefresh = false) => {
+    setLoading(true);
+    try {
+      const data = await reminderService.getAllReminders(forceRefresh);
+      // Sort: Active reminders first, then by title alphabetically
+      const sorted = data.sort((a, b) => {
+        // First, sort by active status (active = true comes first)
+        if (a.is_active !== b.is_active) {
+          return a.is_active ? -1 : 1;
+        }
+        // Then sort alphabetically by title (case-insensitive)
+        return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+      });
+      setReminders(sorted);
+    } catch (error) {
+      console.error('Failed to load reminders:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load reminders',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateReminder = () => {
     resetForm();
@@ -136,77 +147,137 @@ const Reminders = () => {
     setShowDeleteDialog(true);
   };
 
-  const handleSaveReminder = () => {
+  const handleSaveReminder = async () => {
     // Validation
     if (!formData.title.trim()) {
       toast({ title: 'Error', description: 'Title is required', variant: 'destructive' });
       return;
     }
 
-    if (formData.reminder_type === 'Scheduled') {
-      if (!formData.scheduled_time) {
-        toast({ title: 'Error', description: 'Time is required for scheduled reminders', variant: 'destructive' });
-        return;
-      }
-      if (formData.days_of_week.length === 0) {
-        toast({ title: 'Error', description: 'Select at least one day', variant: 'destructive' });
-        return;
-      }
+    // Check for duplicate names (case-insensitive)
+    const duplicateName = reminders.find(
+      r => r.title.toLowerCase() === formData.title.trim().toLowerCase() && 
+      (!isEditing || r.id !== selectedReminder?.id)
+    );
+    if (duplicateName) {
+      toast({ 
+        title: 'Error', 
+        description: 'A reminder with this name already exists. Please choose a different name.', 
+        variant: 'destructive' 
+      });
+      return;
     }
 
-    // TODO: API call
-    if (isEditing && selectedReminder) {
-      // PUT /reminders/{id}
-      console.log('Update reminder:', selectedReminder.id, formData);
-      setReminders(reminders.map(r => 
-        r.id === selectedReminder.id 
-          ? { 
-              ...r, 
-              ...formData,
-              updated_at: new Date().toISOString()
-            } 
-          : r
-      ));
-      toast({ title: 'Success', description: 'Reminder updated successfully' });
-    } else {
-      // POST /reminders
-      const newReminder: Reminder = {
-        id: Math.max(...reminders.map(r => r.id), 0) + 1,
-        user_id: 1,
-        ...formData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      console.log('Create reminder:', formData);
-      setReminders([...reminders, newReminder]);
-      toast({ title: 'Success', description: 'Reminder created successfully' });
+    if (!formData.scheduled_time) {
+      toast({ title: 'Error', description: 'Time is required', variant: 'destructive' });
+      return;
+    }
+    if (formData.days_of_week.length === 0) {
+      toast({ title: 'Error', description: 'Select at least one day', variant: 'destructive' });
+      return;
     }
 
-    setShowCreateDialog(false);
-    resetForm();
+    setSaving(true);
+    try {
+      if (isEditing && selectedReminder) {
+        // Update existing reminder
+        const updateData: any = {
+          title: formData.title,
+          description: formData.description || undefined,
+          scheduled_time: formData.scheduled_time,
+          days_of_week: formData.days_of_week,
+          is_active: formData.is_active,
+        };
+
+        await reminderService.updateReminder(selectedReminder.id, updateData);
+        toast({ title: 'Success', description: 'Reminder updated successfully' });
+      } else {
+        // Create new reminder
+        const createData: ReminderCreate = {
+          title: formData.title,
+          description: formData.description || undefined,
+          scheduled_time: formData.scheduled_time,
+          days_of_week: formData.days_of_week,
+          is_active: formData.is_active,
+        };
+
+        await reminderService.createReminder(createData);
+        toast({ title: 'Success', description: 'Reminder created successfully' });
+      }
+
+      // Reload reminders with force refresh to bypass cache
+      await loadReminders(true);
+      setShowCreateDialog(false);
+      resetForm();
+    } catch (error: any) {
+      console.error('Failed to save reminder:', error);
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.detail || 'Failed to save reminder',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedReminder) {
-      // TODO: DELETE /reminders/{id}
-      console.log('Delete reminder:', selectedReminder.id);
-      setReminders(reminders.filter(r => r.id !== selectedReminder.id));
-      toast({ title: 'Success', description: 'Reminder deleted successfully' });
+      try {
+        await reminderService.deleteReminder(selectedReminder.id);
+        toast({ title: 'Success', description: 'Reminder deleted successfully' });
+        
+        // Reload reminders with force refresh
+        await loadReminders(true);
+      } catch (error) {
+        console.error('Failed to delete reminder:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to delete reminder',
+          variant: 'destructive',
+        });
+      }
     }
     setShowDeleteDialog(false);
     setSelectedReminder(null);
   };
 
-  const handleToggleReminder = (reminder: Reminder) => {
-    // TODO: PATCH /reminders/{id}/toggle
-    console.log('Toggle reminder:', reminder.id);
-    setReminders(reminders.map(r => 
-      r.id === reminder.id ? { ...r, is_active: !r.is_active } : r
-    ));
-    toast({ 
-      title: 'Success', 
-      description: `Reminder ${!reminder.is_active ? 'enabled' : 'disabled'}` 
-    });
+  const handleToggleReminder = async (reminder: Reminder) => {
+    try {
+      // Optimistically update the UI first
+      const updatedReminders = reminders.map(r => 
+        r.id === reminder.id ? { ...r, is_active: !r.is_active } : r
+      );
+      
+      // Sort: Active reminders first, then alphabetically
+      const sorted = updatedReminders.sort((a, b) => {
+        if (a.is_active !== b.is_active) {
+          return a.is_active ? -1 : 1;
+        }
+        return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+      });
+      
+      setReminders(sorted);
+      
+      // Then update backend
+      await reminderService.toggleReminder(reminder.id);
+      toast({ 
+        title: 'Success', 
+        description: `Reminder ${!reminder.is_active ? 'enabled' : 'disabled'}` 
+      });
+      
+      // Invalidate cache so next fetch gets fresh data
+      reminderService.invalidateCache();
+    } catch (error) {
+      console.error('Failed to toggle reminder:', error);
+      // Revert on error
+      await loadReminders(true);
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle reminder',
+        variant: 'destructive',
+      });
+    }
   };
 
   const resetForm = () => {
@@ -236,11 +307,6 @@ const Reminders = () => {
     return days.map(d => daysOfWeek.find(dow => dow.value === d)?.label).join(', ');
   };
 
-  const getReminderIcon = (type: string) => {
-    const IconComponent = reminderTypes.find(t => t.value === type)?.icon || Bell;
-    return IconComponent;
-  };
-
   return (
     <Layout>
       <div className="w-full min-h-screen">
@@ -263,7 +329,7 @@ const Reminders = () => {
                 <div>
                   <p className="text-sm font-medium">How reminders work</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Reminders will appear as notifications while you're using the app. They check your workout activity and goals to show relevant alerts.
+                    Set specific times and days for your workout reminders. You'll receive notifications starting 15 minutes before your scheduled time and up to 30 minutes after.
                   </p>
                 </div>
               </div>
@@ -271,7 +337,14 @@ const Reminders = () => {
           </Card>
 
           {/* Reminders List */}
-          {reminders.length === 0 ? (
+          {loading ? (
+            <Card className="card-elevated">
+              <CardContent className="pt-12 pb-12 text-center">
+                <Loader2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                <p className="text-muted-foreground">Loading reminders...</p>
+              </CardContent>
+            </Card>
+          ) : reminders.length === 0 ? (
             <Card className="card-elevated">
               <CardContent className="pt-12 pb-12 text-center">
                 <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -287,59 +360,62 @@ const Reminders = () => {
               {reminders.map((reminder) => (
                 <Card key={reminder.id} className="card-elevated hover-scale transition-all">
                   <CardContent className="pt-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mt-1">
-                          {(() => {
-                            const IconComponent = getReminderIcon(reminder.reminder_type);
-                            return <IconComponent className="h-5 w-5 text-primary" />;
-                          })()}
+                    {/* Mobile-friendly layout: stack on small screens, row on larger */}
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      {/* Main content area */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {/* Icon */}
+                        <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <Bell className="h-5 w-5 text-primary" />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold">{reminder.title}</h3>
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                              {reminder.reminder_type}
-                            </span>
-                          </div>
+                        
+                        {/* Text content */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold break-words mb-1">{reminder.title}</h3>
                           {reminder.description && (
-                            <p className="text-sm text-muted-foreground mb-2">{reminder.description}</p>
+                            <p className="text-sm text-muted-foreground mb-2 break-words">{reminder.description}</p>
                           )}
                           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                             {reminder.scheduled_time && (
                               <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{reminder.scheduled_time}</span>
+                                <Clock className="h-3 w-3 flex-shrink-0" />
+                                <span>{formatTime(reminder.scheduled_time)}</span>
                               </div>
                             )}
                             {reminder.days_of_week && (
                               <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>{formatDays(reminder.days_of_week)}</span>
+                                <Calendar className="h-3 w-3 flex-shrink-0" />
+                                <span className="break-all">{formatDays(reminder.days_of_week)}</span>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      
+                      {/* Action buttons - stack on mobile, row on desktop */}
+                      <div className="flex sm:flex-col items-center justify-end sm:justify-start gap-2 flex-shrink-0">
                         <Switch
                           checked={reminder.is_active}
                           onCheckedChange={() => handleToggleReminder(reminder)}
                         />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditReminder(reminder)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteReminder(reminder)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditReminder(reminder)}
+                            className="h-9 w-9"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteReminder(reminder)}
+                            className="h-9 w-9"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -354,40 +430,11 @@ const Reminders = () => {
               <DialogHeader>
                 <DialogTitle>{isEditing ? 'Edit Reminder' : 'Create New Reminder'}</DialogTitle>
                 <DialogDescription>
-                  Set up a reminder to help you stay on track with your fitness goals.
+                  Set a specific time and days for your workout reminder.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
-                {/* Reminder Type */}
-                <div className="space-y-2">
-                  <Label>Reminder Type</Label>
-                  <Select
-                    value={formData.reminder_type}
-                    onValueChange={(value: any) => setFormData({ ...formData, reminder_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {reminderTypes.map((type) => {
-                        const IconComponent = type.icon;
-                        return (
-                          <SelectItem key={type.value} value={type.value}>
-                            <div className="flex items-center gap-2">
-                              <IconComponent className="h-4 w-4 text-primary" />
-                              <div>
-                                <div className="font-medium">{type.label}</div>
-                                <div className="text-xs text-muted-foreground">{type.description}</div>
-                              </div>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Title */}
                 <div className="space-y-2">
                   <Label htmlFor="title">Title *</Label>
@@ -413,39 +460,42 @@ const Reminders = () => {
                   />
                 </div>
 
-                {/* Scheduled Time - Only for Scheduled type */}
-                {formData.reminder_type === 'Scheduled' && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="time">Time *</Label>
-                      <Input
-                        id="time"
-                        type="time"
-                        value={formData.scheduled_time}
-                        onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
-                      />
-                    </div>
+                {/* Scheduled Time */}
+                <div className="space-y-2">
+                  <Label htmlFor="time">Time * ({preferences.timeFormat === '12h' ? '12-hour' : '24-hour'})</Label>
+                  <Input
+                    id="time"
+                    type="time"
+                    value={formData.scheduled_time}
+                    onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                    step="60"
+                    lang={preferences.timeFormat === '24h' ? 'en-GB' : 'en-US'}
+                  />
+                  {formData.scheduled_time && (
+                    <p className="text-xs text-muted-foreground">
+                      Displays as: {formatTime(formData.scheduled_time)}
+                    </p>
+                  )}
+                </div>
 
-                    {/* Days of Week */}
-                    <div className="space-y-2">
-                      <Label>Days of Week *</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {daysOfWeek.map((day) => (
-                          <Button
-                            key={day.value}
-                            type="button"
-                            variant={formData.days_of_week.includes(day.value) ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => toggleDay(day.value)}
-                            className="w-14"
-                          >
-                            {day.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+                {/* Days of Week */}
+                <div className="space-y-2">
+                  <Label>Days of Week *</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {daysOfWeek.map((day) => (
+                      <Button
+                        key={day.value}
+                        type="button"
+                        variant={formData.days_of_week.includes(day.value) ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => toggleDay(day.value)}
+                        className="w-14"
+                      >
+                        {day.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Active Toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border">
@@ -459,11 +509,18 @@ const Reminders = () => {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={saving}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveReminder}>
-                  {isEditing ? 'Update' : 'Create'} Reminder
+                <Button onClick={handleSaveReminder} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>{isEditing ? 'Update' : 'Create'} Reminder</>
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
