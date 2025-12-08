@@ -26,7 +26,9 @@ const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const { preferences, updateWeightUnit, updateDistanceUnit, updateTimeFormat } = usePreferences();
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const { preferences, updateWeightUnit, updateTimeFormat } = usePreferences();
   const { endWorkout } = useWorkout();
   
   // Get current user info
@@ -143,35 +145,6 @@ const Settings = () => {
               </div>
               
               <Separator />
-              
-              <div 
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
-                onClick={() => {
-                  const newUnit = preferences.distanceUnit === 'miles' ? 'km' : 'miles';
-                  updateDistanceUnit(newUnit);
-                  toast({ title: 'Unit Updated', description: `Distance unit changed to ${newUnit}` });
-                }}
-              >
-                <div className="flex-1">
-                  <Label className="cursor-pointer font-medium">Distance Unit</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {preferences.distanceUnit === 'miles' ? 'Miles' : 'Kilometers'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-primary">{preferences.distanceUnit}</span>
-                  <Switch 
-                    checked={preferences.distanceUnit === 'km'}
-                    onCheckedChange={(checked) => {
-                      const newUnit = checked ? 'km' : 'miles';
-                      updateDistanceUnit(newUnit);
-                      toast({ title: 'Unit Updated', description: `Distance unit changed to ${newUnit}` });
-                    }}
-                  />
-                </div>
-              </div>
-
-              <Separator />
 
               <div 
                 className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/30 transition-all cursor-pointer active:scale-[0.98]"
@@ -233,24 +206,24 @@ const Settings = () => {
           </Card>
         </div>
 
-        {/* Support Section */}
+        {/* About & Help Section */}
         <div className="mb-8 space-y-4">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider px-1">
-            Support
+            About
           </h2>
           <Card className="card-elevated animate-slide-up hover-scale transition-all duration-200">
             <CardContent className="p-0">
               <Button 
                 variant="ghost" 
                 className="w-full justify-start rounded-xl h-auto py-4 px-6 hover:bg-muted/30"
-                onClick={() => toast({ title: "Help Center", description: "Opening help documentation..." })}
+                onClick={() => setShowHelpDialog(true)}
               >
                 <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center mr-3">
                   <HelpCircle className="h-4 w-4 text-accent" />
                 </div>
                 <div className="text-left flex-1">
-                  <p className="font-medium">Help Center</p>
-                  <p className="text-xs text-muted-foreground">Browse FAQs and guides</p>
+                  <p className="font-medium">How to Use</p>
+                  <p className="text-xs text-muted-foreground">Quick start guide and tips</p>
                 </div>
               </Button>
               
@@ -259,14 +232,14 @@ const Settings = () => {
               <Button 
                 variant="ghost" 
                 className="w-full justify-start rounded-xl h-auto py-4 px-6 hover:bg-muted/30"
-                onClick={() => toast({ title: "Contact Support", description: "Opening email client..." })}
+                onClick={() => setShowAboutDialog(true)}
               >
                 <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center mr-3">
-                  <Mail className="h-4 w-4 text-primary" />
+                  <Shield className="h-4 w-4 text-primary" />
                 </div>
                 <div className="text-left flex-1">
-                  <p className="font-medium">Contact Support</p>
-                  <p className="text-xs text-muted-foreground">Get help from our team</p>
+                  <p className="font-medium">About This App</p>
+                  <p className="text-xs text-muted-foreground">Version and app info</p>
                 </div>
               </Button>
             </CardContent>
@@ -304,6 +277,71 @@ const Settings = () => {
               >
                 Sign Out
               </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Help Dialog */}
+        <AlertDialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
+          <AlertDialogContent className="rounded-2xl max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-accent" />
+                How to Use Rep-Track
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-left space-y-3 pt-2">
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Dashboard</p>
+                  <p className="text-sm">View your workout statistics and progress at a glance.</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Workout Logging</p>
+                  <p className="text-sm">Start a workout, select exercises, and log your sets with weights and reps.</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Stats & History</p>
+                  <p className="text-sm">Track your personal records and view detailed workout history.</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Reminders</p>
+                  <p className="text-sm">Set scheduled reminders to stay consistent with your training.</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Settings</p>
+                  <p className="text-sm">Customize weight units (lbs/kg) and time format (12h/24h).</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction className="rounded-xl">Got it!</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* About Dialog */}
+        <AlertDialog open={showAboutDialog} onOpenChange={setShowAboutDialog}>
+          <AlertDialogContent className="rounded-2xl max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                About Rep-Track
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-left space-y-3 pt-2">
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Version</p>
+                  <p className="text-sm">1.0.0</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Created By</p>
+                  <p className="text-sm">Irtaza, Taha & Abdullah</p>
+                </div>
+                <div className="pt-2">
+                  <p className="text-sm text-muted-foreground italic">Made with love in Pakistan</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction className="rounded-xl">Close</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

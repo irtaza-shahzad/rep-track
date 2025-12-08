@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PreferencesProvider } from "./contexts/PreferencesContext";
 import { WorkoutProvider } from "./contexts/WorkoutContext";
 import ActiveWorkoutIndicator from "./components/ActiveWorkoutIndicator";
+import ReminderPollingProvider from "./components/ReminderPollingProvider";
 import Welcome from "./pages/Welcome";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -28,6 +29,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ActiveWorkoutIndicator />
+            <ReminderPollingProvider />
             <Routes>
               <Route path="/" element={<Welcome />} />
               <Route path="/login" element={<Login />} />
