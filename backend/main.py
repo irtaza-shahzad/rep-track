@@ -1,6 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routers import user_router, auth_router, exercise_router, template_router, active_workout_router, stats_router, streak_router, reminder_router
+from app.api.routers import (
+    user_router, 
+    auth_router, 
+    exercise_router, 
+    template_router, 
+    active_workout_router, 
+    stats_router, 
+    streak_router, 
+    reminder_router,
+    export_router
+)
 from app.core.open_api import custom_openapi 
 
 # Import models so SQLAlchemy registers them
@@ -36,3 +46,4 @@ app.include_router(active_workout_router.router)
 app.include_router(stats_router.router)
 app.include_router(streak_router.router)
 app.include_router(reminder_router.router)
+app.include_router(export_router.router)
