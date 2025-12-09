@@ -5,6 +5,7 @@
  */
 
 import { api } from './api';
+import { logger } from '@/lib/logger';
 
 export interface WorkoutSet {
     reps: string;          // number-like string
@@ -101,8 +102,8 @@ export async function getActiveWorkout(): Promise<WorkoutState | null> {
         if (error.response?.status === 404) {
             return null;
         }
-        // Log other errors (not 404)
-        console.error('Unexpected error fetching active workout:', error);
+        // Log other errors (not 404) using secure logger
+        logger.error('Unexpected error fetching active workout', error);
         throw error;
     }
 }

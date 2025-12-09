@@ -17,6 +17,7 @@ import { STORAGE_KEYS } from '@/core/constants/AppConstants';
 import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
 import { templateService, WorkoutTemplate as APIWorkoutTemplate } from '@/services/templateService';
 import { formatLargeNumber } from '@/lib/numberFormat';
+import { logger } from '@/lib/logger';
 
 interface WorkoutTemplate {
   id: string;
@@ -84,7 +85,7 @@ const Dashboard = () => {
       
       setTemplates(dashboardTemplates);
     } catch (error) {
-      console.error('Failed to load templates:', error);
+      logger.error('Failed to load templates', error);
       // Fallback to empty array instead of showing error toast
       setTemplates([]);
     }
@@ -105,7 +106,7 @@ const Dashboard = () => {
       setStats(statsData);
       setStreak(streakData);
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      logger.error('Failed to load dashboard data', error);
       toast({
         title: "Error Loading Data",
         description: "Failed to load workout data. Please try again.",

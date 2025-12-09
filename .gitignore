@@ -105,7 +105,13 @@ desktop.ini
 # PROJECT SPECIFIC
 # ==========================================
 
-# Keep documentation
+# Test/utility scripts (may contain hardcoded credentials)
+backend/test_*.py
+backend/check_*.py
+backend/trigger_*.py
+
 !*.md
 !backend/*.md
 !frontend/*.md
+
+design-patterns-analysis.md

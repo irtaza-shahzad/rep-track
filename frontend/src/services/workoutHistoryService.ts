@@ -4,6 +4,7 @@
  */
 
 import { api } from './api';
+import { logger } from '@/lib/logger';
 
 export interface WorkoutHistoryItem {
     id: number;
@@ -126,7 +127,7 @@ const saveToCache = <T>(key: string, data: T): void => {
         };
         localStorage.setItem(key, JSON.stringify(entry));
     } catch (error) {
-        console.warn('Failed to cache data:', error);
+        logger.warn('Failed to cache data', error);
     }
 };
 

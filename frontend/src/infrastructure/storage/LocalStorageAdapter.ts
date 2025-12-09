@@ -5,6 +5,7 @@
  */
 
 import { STORAGE_KEYS } from '../../core/constants/AppConstants';
+import { logger } from '../../lib/logger';
 
 /**
  * Generic storage interface
@@ -42,7 +43,7 @@ export class LocalStorageAdapter implements IStorage {
       if (!item || item === 'undefined' || item === 'null') return null;
       return JSON.parse(item) as T;
     } catch (error) {
-      console.error(`Error reading from localStorage for key: ${key}`, error);
+      logger.error(`Error reading from localStorage for key: ${key}`, error);
       return null;
     }
   }
@@ -54,7 +55,7 @@ export class LocalStorageAdapter implements IStorage {
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.error(`Error writing to localStorage for key: ${key}`, error);
+      logger.error(`Error writing to localStorage for key: ${key}`, error);
     }
   }
 
@@ -65,7 +66,7 @@ export class LocalStorageAdapter implements IStorage {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      console.error(`Error removing from localStorage for key: ${key}`, error);
+      logger.error(`Error removing from localStorage for key: ${key}`, error);
     }
   }
 
@@ -76,7 +77,7 @@ export class LocalStorageAdapter implements IStorage {
     try {
       localStorage.clear();
     } catch (error) {
-      console.error('Error clearing localStorage', error);
+      logger.error('Error clearing localStorage', error);
     }
   }
 
@@ -101,7 +102,7 @@ export class LocalStorageAdapter implements IStorage {
         }
       });
     } catch (error) {
-      console.error('Error clearing user data from localStorage', error);
+      logger.error('Error clearing user data from localStorage', error);
     }
   }
 

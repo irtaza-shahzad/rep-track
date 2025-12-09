@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getMyStreak, type Streak } from '@/services/streakService';
 import { Card, CardContent } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
 
 const StreakIndicator = () => {
   const [streak, setStreak] = useState<Streak | null | undefined>(undefined);
@@ -18,7 +19,7 @@ const StreakIndicator = () => {
       const data = await getMyStreak();
       setStreak(data);
     } catch (error) {
-      console.error('Failed to load streak:', error);
+      logger.error('Failed to load streak', error);
       setStreak(null);
     }
   };

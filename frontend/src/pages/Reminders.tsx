@@ -28,6 +28,7 @@ import {
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { reminderService, Reminder, ReminderCreate } from '@/services/reminderService';
 
@@ -111,7 +112,7 @@ const Reminders = () => {
       });
       setReminders(sorted);
     } catch (error) {
-      console.error('Failed to load reminders:', error);
+      logger.error('Failed to load reminders', error);
       toast({
         title: 'Error',
         description: 'Failed to load reminders',
@@ -210,7 +211,7 @@ const Reminders = () => {
       setShowCreateDialog(false);
       resetForm();
     } catch (error: any) {
-      console.error('Failed to save reminder:', error);
+      logger.error('Failed to save reminder', error);
       toast({
         title: 'Error',
         description: error?.response?.data?.detail || 'Failed to save reminder',
@@ -230,7 +231,7 @@ const Reminders = () => {
         // Reload reminders with force refresh
         await loadReminders(true);
       } catch (error) {
-        console.error('Failed to delete reminder:', error);
+        logger.error('Failed to delete reminder', error);
         toast({
           title: 'Error',
           description: 'Failed to delete reminder',
@@ -269,7 +270,7 @@ const Reminders = () => {
       // Invalidate cache so next fetch gets fresh data
       reminderService.invalidateCache();
     } catch (error) {
-      console.error('Failed to toggle reminder:', error);
+      logger.error('Failed to toggle reminder', error);
       // Revert on error
       await loadReminders(true);
       toast({

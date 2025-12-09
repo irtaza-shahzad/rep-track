@@ -1,10 +1,5 @@
-/**
- * Application-wide Constants
- * Single source of truth for configuration values
- */
-
 export const API_CONFIG = {
-    BASE_URL: 'http://localhost:8000',
+    BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
     TIMEOUT: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3,
 } as const;

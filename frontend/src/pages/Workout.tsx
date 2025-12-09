@@ -21,6 +21,7 @@ import type { Exercise as ExerciseSelectorType } from '@/components/ExerciseSele
 import { STORAGE_KEYS } from '@/core/constants/AppConstants';
 import { storageAdapter } from '@/infrastructure/storage/LocalStorageAdapter';
 import { exerciseService } from '@/services/exerciseService';
+import { logger } from '@/lib/logger';
 
 interface Exercise {
   id: string;
@@ -91,7 +92,7 @@ const Workout = () => {
         
         setAllExercises(transformed);
       } catch (error) {
-        console.error('Failed to load exercises:', error);
+        logger.error('Failed to load exercises', error);
         toast({
           title: "Error Loading Exercises",
           description: "Failed to load exercise library. Please try again.",
@@ -135,7 +136,7 @@ const Workout = () => {
           
           // If we're explicitly starting fresh (clearDraft=true), cancel any existing workout
           if (clearDraft && backendWorkout) {
-            console.log('Cancelling existing workout to start fresh');
+            logger.debug('Cancelling existing workout to start fresh');
             await liveWorkoutService.cancelWorkout();
             // Set to null so we don't try to resume it
             backendWorkout = null;
@@ -172,20 +173,20 @@ const Workout = () => {
             startWorkout(resumedExercises);
           } else {
             // No backend workout, or starting from template - start fresh
-            console.log('Starting workout with template:', template);
+            logger.debug('Starting workout with template', template?.name);
             
             // Create workout in backend
             const startWorkoutPayload = {
               workout_name: template?.name || '',
               template_id: template?.id ? Number(template.id) : null  // Ensure it's a number
             };
-            console.log('Start workout payload:', startWorkoutPayload);
+            logger.debug('Start workout payload', { hasTemplate: !!template?.id });
             
             const newWorkout = await liveWorkoutService.startWorkout(startWorkoutPayload);
             
             // If starting from a template, add exercises to backend (in parallel for speed)
             if (template && template.exercises && template.exercises.length > 0) {
-              console.log('Adding template exercises:', template.exercises);
+              logger.debug('Adding template exercises', { count: template.exercises.length });
               // Add all exercises in parallel to eliminate loading delay
               const exercisePromises = template.exercises.map((exerciseName: string) => 
                 liveWorkoutService.addExercise(newWorkout.id, {
@@ -195,7 +196,7 @@ const Workout = () => {
               );
               
               const exerciseResponses = await Promise.all(exercisePromises);
-              console.log('Exercise responses:', exerciseResponses);
+              logger.debug('Added exercises to workout', { count: exerciseResponses.length });
               
               // Create frontend exercises with backend IDs
               initialExercises = exerciseResponses.map((exerciseResponse) => ({
@@ -213,7 +214,7 @@ const Workout = () => {
             startWorkout(initialExercises);
           }
         } catch (error) {
-          console.error('Failed to initialize workout:', error);
+          logger.error('Failed to initialize workout', error);
           toast({
             title: "Error",
             description: "Failed to start workout. Please try again.",
@@ -330,7 +331,7 @@ const Workout = () => {
         setExercises([...exercises, newExercise]);
       }
     } catch (error) {
-      console.error('Failed to add exercise:', error);
+      logger.error('Failed to add exercise', error);
       toast({
         title: "Error",
         description: "Failed to add exercise. Please try again.",
@@ -590,7 +591,7 @@ const Workout = () => {
         description: "Your workout has been saved.",
       });
     } catch (error) {
-      console.error('Failed to save workout to backend:', error);
+      logger.error('Failed to save workout to backend', error);
       toast({
         title: "Workout Save Error",
         description: "Failed to save workout to server. Please check your connection and try again.",
@@ -618,7 +619,7 @@ const Workout = () => {
         });
         navigate('/dashboard');
       } catch (error) {
-        console.error('Failed to cancel workout:', error);
+        logger.error('Failed to cancel workout', error);
         toast({
           title: "Error",
           description: "Failed to cancel workout. Please try again.",

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dumbbell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { authService } from '@/services/authService';
+import { logger } from '@/lib/logger';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -73,7 +74,8 @@ const Login = () => {
       }
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Authentication error:', error);
+      // Use logger for safe error handling - no sensitive data logged
+      logger.error('Authentication failed', { isLogin });
       const errorMessage = error.response?.data?.detail 
         || error.response?.data?.message 
         || error.message 
