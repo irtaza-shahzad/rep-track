@@ -15,34 +15,21 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import ExerciseSelector from '@/components/ExerciseSelector';
 import { useWorkout } from '@/contexts/WorkoutContext';
-import { exerciseService, Exercise as APIExercise, Category, Difficulty, MuscleGroup } from '@/services/exerciseService';
-import { templateService, WorkoutTemplate as APIWorkoutTemplate, TemplateExercise } from '@/services/templateService';
-
-interface Exercise {
-  id: number;
-  name: string;
-  category: string;
-  muscleGroup: string;
-  difficulty: string;
-  description?: string;
-  icon: any;
-  isSystem?: boolean;
-}
-
-interface WorkoutTemplate {
-  id: number;
-  name: string;
-  exercises: string[];
-  duration: string;
-  restTime?: number;
-  notes?: string;
-  template_exercises?: TemplateExercise[];
-}
+import { exerciseService, Category, Difficulty, MuscleGroup } from '@/services/exerciseService';
+import { templateService, TemplateExercise } from '@/services/templateService';
+import { useExerciseForm, Exercise } from '@/hooks/exercise/useExerciseForm';
+import { useTemplateForm, WorkoutTemplate } from '@/hooks/exercise/useTemplateForm';
+import ExerciseFormDialog from '@/components/exercise/ExerciseFormDialog';
+import TemplateFormDialog from '@/components/exercise/TemplateFormDialog';
 
 const ExerciseLibrary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { hasActiveWorkout } = useWorkout();
+  
+  // Use custom hooks for form logic
+  const exerciseForm = useExerciseForm();
+  const templateForm = useTemplateForm();
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,7 +38,7 @@ const ExerciseLibrary = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const [showSystemOnly, setShowSystemOnly] = useState<boolean>(false);
   const [showCustomOnly, setShowCustomOnly] = useState<boolean>(false);
-  const [displayLimit, setDisplayLimit] = useState<number>(15); // Only show 15 exercises initially
+  const [displayLimit, setDisplayLimit] = useState<number>(15);
   
   // Dialog states
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
@@ -63,24 +50,12 @@ const ExerciseLibrary = () => {
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [viewingTemplate, setViewingTemplate] = useState<WorkoutTemplate | null>(null);
   
-  // Form states
-  const [newExerciseName, setNewExerciseName] = useState('');
-  const [newExerciseDescription, setNewExerciseDescription] = useState('');
-  const [newExerciseCategory, setNewExerciseCategory] = useState('');
-  const [newExerciseMuscleGroup, setNewExerciseMuscleGroup] = useState('');
-  const [newExerciseDifficulty, setNewExerciseDifficulty] = useState('');
-  const [newTemplateName, setNewTemplateName] = useState('');
-  const [newTemplateDescription, setNewTemplateDescription] = useState('');
-  const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
-  
   // Data states
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
-  const [loading, setLoading] = useState<boolean>(false); // Changed to false - show UI immediately
   const [templatesLoading, setTemplatesLoading] = useState<boolean>(false);
   const [templatesLoaded, setTemplatesLoaded] = useState<boolean>(false);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [templateDisplayLimit, setTemplateDisplayLimit] = useState<number>(15); // Show 15 templates initially
+  const [templateDisplayLimit, setTemplateDisplayLimit] = useState<number>(15);
 
   const categories: Category[] = ['Strength', 'Cardio', 'Flexibility', 'Mobility', 'Other'];
   const muscleGroups: MuscleGroup[] = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full Body', 'Other'];
@@ -187,311 +162,59 @@ const ExerciseLibrary = () => {
 
   const hasMoreExercises = filteredExercises.length > displayLimit;
 
-  // Add new exercise
-  const handleAddExercise = async () => {
-    if (!newExerciseName.trim() || !newExerciseCategory || !newExerciseMuscleGroup || !newExerciseDifficulty) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Exercise handlers - use hook-based logic
+  const handleAddExercise = () => exerciseForm.handleAddExercise(
+    exercises,
+    setExercises,
+    getCategoryIcon,
+    () => setIsAddExerciseOpen(false)
+  );
 
-    try {
-      setSubmitting(true);
-      const newExercise = await exerciseService.createExercise({
-        name: newExerciseName,
-        description: newExerciseDescription || undefined,
-        category: newExerciseCategory as Category,
-        muscle_group: newExerciseMuscleGroup as MuscleGroup,
-        difficulty: newExerciseDifficulty as Difficulty,
-      });
+  const handleDeleteExercise = (id: number, name: string, isSystem?: boolean) =>
+    exerciseForm.handleDeleteExercise(id, name, isSystem, exercises, setExercises);
 
-      // Add to local state
-      setExercises(prev => [...prev, {
-        id: newExercise.id,
-        name: newExercise.name,
-        category: newExercise.category,
-        muscleGroup: newExercise.muscle_group.replace(' ', ''),
-        difficulty: newExercise.difficulty,
-        description: newExercise.description,
-        icon: getCategoryIcon(newExercise.category),
-        isSystem: false
-      }]);
-
-      // Reset form
-      setNewExerciseName('');
-      setNewExerciseDescription('');
-      setNewExerciseCategory('');
-      setNewExerciseMuscleGroup('');
-      setNewExerciseDifficulty('');
-      setIsAddExerciseOpen(false);
-      
-      toast({
-        title: "Exercise Added",
-        description: `${newExerciseName} has been added to your library`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to add exercise",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Delete exercise
-  const handleDeleteExercise = async (id: number, name: string, isSystem?: boolean) => {
-    if (isSystem) {
-      toast({
-        title: "Cannot Delete",
-        description: "System exercises cannot be deleted",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await exerciseService.deleteExercise(id);
-      setExercises(prev => prev.filter(ex => ex.id !== id));
-      
-      toast({
-        title: "Exercise Deleted",
-        description: `${name} has been removed`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to delete exercise",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Edit exercise - open dialog with pre-filled data
   const handleEditExercise = (exercise: Exercise) => {
     setEditingExercise(exercise);
-    setNewExerciseName(exercise.name);
-    setNewExerciseDescription(exercise.description || '');
-    setNewExerciseCategory(exercise.category);
-    setNewExerciseMuscleGroup(exercise.muscleGroup.replace(/([A-Z])/g, ' $1').trim()); // Convert "FullBody" to "Full Body"
-    setNewExerciseDifficulty(exercise.difficulty);
+    exerciseForm.populateFormForEdit(exercise);
     setIsEditExerciseOpen(true);
   };
 
-  // Update exercise
-  const handleUpdateExercise = async () => {
+  const handleUpdateExercise = () => {
     if (!editingExercise) return;
-
-    if (!newExerciseName.trim()) {
-      toast({
-        title: "Error",
-        description: "Exercise name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!newExerciseDescription && !newExerciseCategory && !newExerciseMuscleGroup && !newExerciseDifficulty && newExerciseName === editingExercise.name) {
-      toast({
-        title: "Error",
-        description: "Please modify at least one field",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const updatedExercise = await exerciseService.updateExercise(editingExercise.id, {
-        name: newExerciseName !== editingExercise.name ? newExerciseName : undefined,
-        description: newExerciseDescription || undefined,
-        category: newExerciseCategory as Category,
-        muscle_group: newExerciseMuscleGroup as MuscleGroup,
-        difficulty: newExerciseDifficulty as Difficulty,
-      });
-
-      // Update local state
-      setExercises(prev => prev.map(ex => 
-        ex.id === editingExercise.id ? {
-          ...ex,
-          name: updatedExercise.name,
-          category: updatedExercise.category,
-          muscleGroup: updatedExercise.muscle_group.replace(' ', ''),
-          difficulty: updatedExercise.difficulty,
-          description: updatedExercise.description,
-          icon: getCategoryIcon(updatedExercise.category),
-        } : ex
-      ));
-
-      // Reset form
-      setNewExerciseName('');
-      setNewExerciseDescription('');
-      setNewExerciseCategory('');
-      setNewExerciseMuscleGroup('');
-      setNewExerciseDifficulty('');
-      setEditingExercise(null);
-      setIsEditExerciseOpen(false);
-      
-      toast({
-        title: "Exercise Updated",
-        description: `${editingExercise.name} has been updated`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to update exercise",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    exerciseForm.handleUpdateExercise(
+      editingExercise,
+      exercises,
+      setExercises,
+      getCategoryIcon,
+      () => {
+        setEditingExercise(null);
+        setIsEditExerciseOpen(false);
+      }
+    );
   };
 
-  // Add new template
-  const handleAddTemplate = async () => {
-    if (!newTemplateName.trim() || selectedExercises.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please provide a name and select at least one exercise",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Template handlers - use hook-based logic
+  const handleAddTemplate = () => templateForm.handleAddTemplate(
+    templates,
+    setTemplates,
+    () => setIsAddTemplateOpen(false)
+  );
 
-    try {
-      setSubmitting(true);
-      
-      // Create template exercises from selected exercise names
-      const templateExercises: TemplateExercise[] = selectedExercises.map((exerciseName, index) => ({
-        exercise_name: exerciseName,
-        position: index + 1,
-        sets: 3,
-        reps: 10,
-        rest_seconds: 60
-      }));
-
-      const newTemplate = await templateService.createTemplate({
-        name: newTemplateName,
-        description: newTemplateDescription || undefined,
-        exercises: templateExercises,
-      });
-
-      // Add to local state
-      setTemplates(prev => [...prev, {
-        id: newTemplate.id!,
-        name: newTemplate.name,
-        exercises: newTemplate.template_exercises?.map(e => e.exercise_name) || [],
-        duration: `${(newTemplate.template_exercises?.length || 0) * 15} min`,
-        notes: newTemplate.description,
-        template_exercises: newTemplate.template_exercises
-      }]);
-
-      // Reset form
-      setNewTemplateName('');
-      setNewTemplateDescription('');
-      setSelectedExercises([]);
-      setIsAddTemplateOpen(false);
-      
-      toast({
-        title: "Template Created",
-        description: `${newTemplateName} has been saved`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to create template",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
+  const handleUpdateTemplate = () => {
+    if (!editingTemplate) return;
+    templateForm.handleUpdateTemplate(
+      editingTemplate,
+      templates,
+      setTemplates,
+      () => {
+        setEditingTemplate(null);
+        setIsEditTemplateOpen(false);
+      }
+    );
   };
 
-  // Update template
-  const handleUpdateTemplate = async () => {
-    if (!editingTemplate || !newTemplateName.trim() || selectedExercises.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please provide a name and select at least one exercise",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-
-      // Create template exercises from selected exercise names
-      const templateExercises: TemplateExercise[] = selectedExercises.map((exerciseName, index) => ({
-        exercise_name: exerciseName,
-        position: index + 1,
-        sets: 3,
-        reps: 10,
-        rest_seconds: 60
-      }));
-
-      const updatedTemplate = await templateService.updateTemplate(editingTemplate.id, {
-        name: newTemplateName,
-        description: newTemplateDescription || undefined,
-        exercises: templateExercises,
-      });
-
-      // Update local state
-      setTemplates(prev => prev.map(t => 
-        t.id === editingTemplate.id ? {
-          id: updatedTemplate.id!,
-          name: updatedTemplate.name,
-          exercises: updatedTemplate.template_exercises?.map(e => e.exercise_name) || [],
-          duration: `${(updatedTemplate.template_exercises?.length || 0) * 15} min`,
-          notes: updatedTemplate.description,
-          template_exercises: updatedTemplate.template_exercises
-        } : t
-      ));
-
-      // Reset form
-      setNewTemplateName('');
-      setNewTemplateDescription('');
-      setSelectedExercises([]);
-      setEditingTemplate(null);
-      setIsEditTemplateOpen(false);
-      
-      toast({
-        title: "Template Updated",
-        description: `${newTemplateName} has been updated`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to update template",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Delete template
-  const handleDeleteTemplate = async (id: number, name: string) => {
-    try {
-      await templateService.deleteTemplate(id);
-      setTemplates(prev => prev.filter(t => t.id !== id));
-      
-      toast({
-        title: "Template Deleted",
-        description: `${name} has been removed`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to delete template",
-        variant: "destructive",
-      });
-    }
-  };
+  const handleDeleteTemplate = (id: number, name: string) =>
+    templateForm.handleDeleteTemplate(id, name, templates, setTemplates);
 
   // Start workout from template
   const handleStartWorkout = (template: WorkoutTemplate) => {
@@ -509,9 +232,7 @@ const ExerciseLibrary = () => {
   // Edit template
   const handleEditTemplate = (template: WorkoutTemplate) => {
     setEditingTemplate(template);
-    setNewTemplateName(template.name);
-    setNewTemplateDescription(template.notes || '');
-    setSelectedExercises([...template.exercises]);
+    templateForm.populateFormForEdit(template);
     setIsEditTemplateOpen(true);
   };
 
@@ -519,17 +240,6 @@ const ExerciseLibrary = () => {
   const handleViewTemplate = (template: WorkoutTemplate) => {
     setViewingTemplate(template);
     setIsViewTemplateOpen(true);
-  };
-
-  // Toggle exercise selection for templates
-  const toggleExerciseSelection = (exerciseName: string) => {
-    setSelectedExercises(prev => {
-      if (prev.includes(exerciseName)) {
-        return prev.filter(e => e !== exerciseName);
-      } else {
-        return [...prev, exerciseName];
-      }
-    });
   };
 
   return (
@@ -631,7 +341,10 @@ const ExerciseLibrary = () => {
               </Card>
 
               {/* Add Exercise Button */}
-              <Dialog open={isAddExerciseOpen} onOpenChange={setIsAddExerciseOpen}>
+              <Dialog open={isAddExerciseOpen} onOpenChange={(open) => {
+                setIsAddExerciseOpen(open);
+                if (!open) exerciseForm.resetForm();
+              }}>
                 <DialogTrigger asChild>
                   <Button className="w-full">
                     <Plus className="mr-2 h-4 w-4" /> Add Custom Exercise
@@ -645,22 +358,22 @@ const ExerciseLibrary = () => {
                     <div>
                       <Label>Exercise Name *</Label>
                       <Input
-                        value={newExerciseName}
-                        onChange={(e) => setNewExerciseName(e.target.value)}
+                        value={exerciseForm.newExerciseName}
+                        onChange={(e) => exerciseForm.setNewExerciseName(e.target.value)}
                         placeholder="e.g., Barbell Squat"
                       />
                     </div>
                     <div>
                       <Label>Description</Label>
                       <Textarea
-                        value={newExerciseDescription}
-                        onChange={(e) => setNewExerciseDescription(e.target.value)}
+                        value={exerciseForm.newExerciseDescription}
+                        onChange={(e) => exerciseForm.setNewExerciseDescription(e.target.value)}
                         placeholder="Optional description"
                       />
                     </div>
                     <div>
                       <Label>Category *</Label>
-                      <Select value={newExerciseCategory} onValueChange={setNewExerciseCategory}>
+                      <Select value={exerciseForm.newExerciseCategory} onValueChange={exerciseForm.setNewExerciseCategory}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
@@ -673,7 +386,7 @@ const ExerciseLibrary = () => {
                     </div>
                     <div>
                       <Label>Muscle Group *</Label>
-                      <Select value={newExerciseMuscleGroup} onValueChange={setNewExerciseMuscleGroup}>
+                      <Select value={exerciseForm.newExerciseMuscleGroup} onValueChange={exerciseForm.setNewExerciseMuscleGroup}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select muscle group" />
                         </SelectTrigger>
@@ -686,7 +399,7 @@ const ExerciseLibrary = () => {
                     </div>
                     <div>
                       <Label>Difficulty *</Label>
-                      <Select value={newExerciseDifficulty} onValueChange={setNewExerciseDifficulty}>
+                      <Select value={exerciseForm.newExerciseDifficulty} onValueChange={exerciseForm.setNewExerciseDifficulty}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select difficulty" />
                         </SelectTrigger>
@@ -697,8 +410,8 @@ const ExerciseLibrary = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button onClick={handleAddExercise} className="w-full" disabled={submitting}>
-                      {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    <Button onClick={handleAddExercise} className="w-full" disabled={exerciseForm.submitting}>
+                      {exerciseForm.submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Add Exercise
                     </Button>
                   </div>
@@ -709,12 +422,7 @@ const ExerciseLibrary = () => {
               <Dialog open={isEditExerciseOpen} onOpenChange={(open) => {
                 setIsEditExerciseOpen(open);
                 if (!open) {
-                  // Reset form when closing
-                  setNewExerciseName('');
-                  setNewExerciseDescription('');
-                  setNewExerciseCategory('');
-                  setNewExerciseMuscleGroup('');
-                  setNewExerciseDifficulty('');
+                  exerciseForm.resetForm();
                   setEditingExercise(null);
                 }
               }}>
@@ -726,22 +434,22 @@ const ExerciseLibrary = () => {
                     <div>
                       <Label>Exercise Name *</Label>
                       <Input
-                        value={newExerciseName}
-                        onChange={(e) => setNewExerciseName(e.target.value)}
+                        value={exerciseForm.newExerciseName}
+                        onChange={(e) => exerciseForm.setNewExerciseName(e.target.value)}
                         placeholder="e.g., Barbell Squat"
                       />
                     </div>
                     <div>
                       <Label>Description</Label>
                       <Textarea
-                        value={newExerciseDescription}
-                        onChange={(e) => setNewExerciseDescription(e.target.value)}
+                        value={exerciseForm.newExerciseDescription}
+                        onChange={(e) => exerciseForm.setNewExerciseDescription(e.target.value)}
                         placeholder="Optional description"
                       />
                     </div>
                     <div>
                       <Label>Category</Label>
-                      <Select value={newExerciseCategory} onValueChange={setNewExerciseCategory}>
+                      <Select value={exerciseForm.newExerciseCategory} onValueChange={exerciseForm.setNewExerciseCategory}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
@@ -754,7 +462,7 @@ const ExerciseLibrary = () => {
                     </div>
                     <div>
                       <Label>Muscle Group</Label>
-                      <Select value={newExerciseMuscleGroup} onValueChange={setNewExerciseMuscleGroup}>
+                      <Select value={exerciseForm.newExerciseMuscleGroup} onValueChange={exerciseForm.setNewExerciseMuscleGroup}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select muscle group" />
                         </SelectTrigger>
@@ -767,7 +475,7 @@ const ExerciseLibrary = () => {
                     </div>
                     <div>
                       <Label>Difficulty</Label>
-                      <Select value={newExerciseDifficulty} onValueChange={setNewExerciseDifficulty}>
+                      <Select value={exerciseForm.newExerciseDifficulty} onValueChange={exerciseForm.setNewExerciseDifficulty}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select difficulty" />
                         </SelectTrigger>
@@ -778,8 +486,8 @@ const ExerciseLibrary = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button onClick={handleUpdateExercise} className="w-full" disabled={submitting}>
-                      {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    <Button onClick={handleUpdateExercise} className="w-full" disabled={exerciseForm.submitting}>
+                      {exerciseForm.submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                       Update Exercise
                     </Button>
                   </div>
@@ -916,16 +624,16 @@ const ExerciseLibrary = () => {
                           <div>
                             <Label>Template Name *</Label>
                             <Input
-                              value={newTemplateName}
-                              onChange={(e) => setNewTemplateName(e.target.value)}
+                              value={templateForm.newTemplateName}
+                              onChange={(e) => templateForm.setNewTemplateName(e.target.value)}
                               placeholder="e.g., Push Day"
                             />
                           </div>
                           <div>
                             <Label>Description</Label>
                             <Textarea
-                              value={newTemplateDescription}
-                              onChange={(e) => setNewTemplateDescription(e.target.value)}
+                              value={templateForm.newTemplateDescription}
+                              onChange={(e) => templateForm.setNewTemplateDescription(e.target.value)}
                               placeholder="Optional notes about this template"
                             />
                           </div>
@@ -933,12 +641,12 @@ const ExerciseLibrary = () => {
                             <Label>Select Exercises *</Label>
                             <ExerciseSelector
                               exercises={exercises.map(e => ({ ...e, id: e.id.toString() }))}
-                              selectedExercises={selectedExercises}
-                              onSelect={toggleExerciseSelection}
+                              selectedExercises={templateForm.selectedExercises}
+                              onSelect={templateForm.toggleExerciseSelection}
                             />
                           </div>
-                          <Button onClick={handleAddTemplate} className="w-full" disabled={submitting}>
-                            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          <Button onClick={handleAddTemplate} className="w-full" disabled={templateForm.submitting}>
+                            {templateForm.submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Create Template
                           </Button>
                         </div>
@@ -957,16 +665,16 @@ const ExerciseLibrary = () => {
                           <div>
                             <Label>Template Name *</Label>
                             <Input
-                              value={newTemplateName}
-                              onChange={(e) => setNewTemplateName(e.target.value)}
+                              value={templateForm.newTemplateName}
+                              onChange={(e) => templateForm.setNewTemplateName(e.target.value)}
                               placeholder="e.g., Push Day"
                             />
                           </div>
                           <div>
                             <Label>Description</Label>
                             <Textarea
-                              value={newTemplateDescription}
-                              onChange={(e) => setNewTemplateDescription(e.target.value)}
+                              value={templateForm.newTemplateDescription}
+                              onChange={(e) => templateForm.setNewTemplateDescription(e.target.value)}
                               placeholder="Optional notes about this template"
                             />
                           </div>
@@ -974,12 +682,12 @@ const ExerciseLibrary = () => {
                             <Label>Select Exercises *</Label>
                             <ExerciseSelector
                               exercises={exercises.map(e => ({ ...e, id: e.id.toString() }))}
-                              selectedExercises={selectedExercises}
-                              onSelect={toggleExerciseSelection}
+                              selectedExercises={templateForm.selectedExercises}
+                              onSelect={templateForm.toggleExerciseSelection}
                             />
                           </div>
-                          <Button onClick={handleUpdateTemplate} className="w-full" disabled={submitting}>
-                            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          <Button onClick={handleUpdateTemplate} className="w-full" disabled={templateForm.submitting}>
+                            {templateForm.submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Update Template
                           </Button>
                         </div>

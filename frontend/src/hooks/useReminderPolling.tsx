@@ -5,6 +5,7 @@ import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authStorage } from '@/infrastructure/storage/LocalStorageAdapter';
 import { usePreferences } from '@/contexts/PreferencesContext';
+import { logger } from '@/lib/logger';
 
 const POLLING_INTERVAL = 60000; // 60 seconds
 const ACTIVE_CHECK_CACHE_DURATION = 30000; // Cache active reminders check for 30 seconds
@@ -35,7 +36,7 @@ const saveSnoozedState = (snoozedMap: Map<number, number>) => {
     const active = Array.from(snoozedMap.entries()).filter(([_, snoozeUntil]) => now < snoozeUntil);
     localStorage.setItem(STORAGE_KEY_SNOOZED, JSON.stringify(active));
   } catch (error) {
-    console.error('Failed to save snooze state:', error);
+    logger.warn('Failed to save snooze state', error);
   }
 };
 
@@ -56,7 +57,7 @@ const saveDismissedState = (dismissedSet: Set<number>) => {
   try {
     localStorage.setItem(STORAGE_KEY_DISMISSED, JSON.stringify(Array.from(dismissedSet)));
   } catch (error) {
-    console.error('Failed to save dismissed state:', error);
+    logger.warn('Failed to save dismissed state', error);
   }
 };
 
@@ -208,7 +209,7 @@ export const useReminderPolling = () => {
     } catch (error) {
       // Silently fail - don't show error toasts for reminder polling
       // This prevents spam if the user is offline or the server is down
-      console.debug('Failed to check reminders:', error);
+      logger.debug('Failed to check reminders', error);
     }
   };
 
@@ -246,7 +247,7 @@ export const useReminderPolling = () => {
         localStorage.removeItem(STORAGE_KEY_DISMISSED);
         localStorage.removeItem(STORAGE_KEY_SNOOZED);
       } catch (error) {
-        console.error('Failed to clear reminder state from storage:', error);
+        logger.warn('Failed to clear reminder state from storage', error);
       }
     },
     checkNow: async () => {

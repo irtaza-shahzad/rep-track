@@ -1,12 +1,8 @@
-/**
- * Custom Exception Classes
- * Following Exception Hierarchy Pattern
- */
+// Custom Exception Classes
+// Following Exception Hierarchy Pattern
+// Base Application Exception
+// All custom exceptions should extend this
 
-/**
- * Base Application Exception
- * All custom exceptions should extend this
- */
 export class ApplicationException extends Error {
     constructor(
         message: string,

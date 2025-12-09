@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, History, Library, TrendingUp, Settings, Flame, Bell } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getMyStreak, type Streak } from '@/services/streakService';
+import { logger } from '@/lib/logger';
 
 interface LayoutProps {
   children: ReactNode;
@@ -22,7 +23,7 @@ const Layout = ({ children }: LayoutProps) => {
       const data = await getMyStreak();
       setStreak(data);
     } catch (error) {
-      console.error('Failed to load streak:', error);
+      logger.error('Failed to load streak', error);
       setStreak(null);
     }
   };

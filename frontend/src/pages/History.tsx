@@ -11,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 import PageHeader from '@/components/PageHeader';
 import { useToast } from '@/hooks/use-toast';
 import { usePreferences } from '@/contexts/PreferencesContext';
+import { logger } from '@/lib/logger';
 import { 
   getWorkoutHistory, 
   getWorkoutDetail,
@@ -47,7 +48,7 @@ const History = () => {
       const data = await getWorkoutHistory(100, 0, shouldForceRefresh); // Load last 100 workouts
       setWorkoutHistory(data);
     } catch (error: any) {
-      console.error('Failed to load workout history:', error);
+      logger.error('Failed to load workout history', error);
       toast({
         title: 'Error Loading History',
         description: error.response?.data?.message || 'Failed to load workout history',
@@ -65,7 +66,7 @@ const History = () => {
       const detail = await getWorkoutDetail(workout.id);
       setSelectedWorkout(detail);
     } catch (error: any) {
-      console.error('Failed to load workout details:', error);
+      logger.error('Failed to load workout details', error);
       toast({
         title: 'Error Loading Details',
         description: error.response?.data?.message || 'Failed to load workout details',

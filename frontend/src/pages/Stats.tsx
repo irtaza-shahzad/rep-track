@@ -15,6 +15,7 @@ import { usePreferences } from '@/contexts/PreferencesContext';
 import { statsService, Summary, TimeseriesPoint } from '@/services/statsService';
 import { formatLargeNumber, formatWeight } from '@/lib/numberFormat';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
 
 const Stats = () => {
   const location = useLocation();
@@ -66,7 +67,7 @@ const Stats = () => {
         const streakData = await getMyStreak().catch(() => null);
         setStreak(streakData);
       } catch (err) {
-        console.error('Failed to fetch stats:', err);
+        logger.error('Failed to fetch stats', err);
         setError('Failed to load stats data');
       } finally {
         setLoading(false);
@@ -262,7 +263,7 @@ const Stats = () => {
         description: `Your ${targetDays} days/week goal is now active.`,
       });
     } catch (err: any) {
-      console.error('Failed to start streak:', err);
+      logger.error('Failed to start streak', err);
       const errorMessage = err.response?.data?.message || err.response?.data?.detail || err.message || 'Failed to start streak. Please try again.';
       toast({
         title: 'Error',

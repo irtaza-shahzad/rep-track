@@ -1,11 +1,11 @@
 import axios from 'axios';
 import { authStorage } from '../infrastructure/storage/LocalStorageAdapter';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_CONFIG } from '../core/constants/AppConstants';
+import { logger } from '../lib/logger';
 
 // Create axios instance with default config
 export const api = axios.create({
-    baseURL: API_BASE_URL,
+    baseURL: API_CONFIG.BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -47,9 +47,13 @@ api.interceptors.response.use(
             }
         }
 
-        // Log other errors to console (except 404s which are suppressed above)
+        // Log errors using secure logger (sanitizes sensitive data)
         if (error.response?.status !== 404) {
-            console.error('API Error:', error);
+            logger.error('API request failed', {
+                status: error.response?.status,
+                url: error.config?.url,
+                method: error.config?.method,
+            });
         }
         return Promise.reject(error);
     }
