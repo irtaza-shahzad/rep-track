@@ -1,9 +1,17 @@
-import { User, Bell, Download, LogOut, HelpCircle, Mail, Palette, Globe, Shield } from 'lucide-react';
+import { User, Bell, Download, LogOut, HelpCircle, Mail, Palette, Globe, Shield, FileText, FileSpreadsheet } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +22,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import Layout from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -21,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { useWorkout } from '@/contexts/WorkoutContext';
 import { authService } from '@/services/authService';
+import { exportService } from '@/services/exportService';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -28,6 +44,10 @@ const Settings = () => {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
+  const [exportTimeRange, setExportTimeRange] = useState('last_month');
+  const [isExporting, setIsExporting] = useState(false);
   const { preferences, updateWeightUnit, updateTimeFormat } = usePreferences();
   const { endWorkout } = useWorkout();
   
@@ -43,6 +63,26 @@ const Settings = () => {
     
     // Navigate to login
     navigate('/');
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await exportService.exportWorkoutData(exportFormat, exportTimeRange);
+      toast({
+        title: 'Export Successful',
+        description: `Your ${exportFormat.toUpperCase()} file has been downloaded.`,
+      });
+      setShowExportDialog(false);
+    } catch (error: any) {
+      toast({
+        title: 'Export Failed',
+        description: error.response?.data?.detail || 'Failed to export data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -194,7 +234,7 @@ const Settings = () => {
               <Button 
                 variant="outline" 
                 className="w-full justify-start rounded-xl h-auto py-3"
-                onClick={() => toast({ title: "Export Started", description: "Your workout data is being prepared for download." })}
+                onClick={() => setShowExportDialog(true)}
               >
                 <Download className="h-4 w-4 mr-3" />
                 <div className="text-left">
@@ -280,6 +320,83 @@ const Settings = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Export Data Dialog */}
+        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+          <DialogContent className="rounded-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5 text-primary" />
+                Export Workout Data
+              </DialogTitle>
+              <DialogDescription>
+                Select the format and time range for your data export.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* Format Selection */}
+              <div className="space-y-2">
+                <Label>Export Format</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant={exportFormat === 'csv' ? 'default' : 'outline'}
+                    onClick={() => setExportFormat('csv')}
+                    className="h-auto py-3 flex flex-col items-center gap-2"
+                  >
+                    <FileSpreadsheet className="h-5 w-5" />
+                    <span className="text-xs">CSV</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={exportFormat === 'pdf' ? 'default' : 'outline'}
+                    onClick={() => setExportFormat('pdf')}
+                    className="h-auto py-3 flex flex-col items-center gap-2"
+                  >
+                    <FileText className="h-5 w-5" />
+                    <span className="text-xs">PDF</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Time Range Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="time-range">Time Range</Label>
+                <Select value={exportTimeRange} onValueChange={setExportTimeRange}>
+                  <SelectTrigger id="time-range">
+                    <SelectValue placeholder="Select time range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="last_week">Last Week</SelectItem>
+                    <SelectItem value="last_month">Last Month</SelectItem>
+                    <SelectItem value="last_3_months">Last 3 Months</SelectItem>
+                    <SelectItem value="last_6_months">Last 6 Months</SelectItem>
+                    <SelectItem value="last_year">Last Year</SelectItem>
+                    <SelectItem value="last_2_years">Last 2 Years</SelectItem>
+                    <SelectItem value="all_time">All Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Info Message */}
+              <div className="rounded-lg bg-muted p-3">
+                <p className="text-xs text-muted-foreground">
+                  Your data will be downloaded as a {exportFormat.toUpperCase()} file containing workout history, statistics, and personal records.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowExportDialog(false)} disabled={isExporting}>
+                Cancel
+              </Button>
+              <Button onClick={handleExport} disabled={isExporting}>
+                {isExporting ? 'Exporting...' : 'Export Data'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Help Dialog */}
         <AlertDialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
