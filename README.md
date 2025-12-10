@@ -1,7 +1,7 @@
 # Workout Tracking App
 
-A cross-platform mobile application for logging workouts, tracking progress, and maintaining fitness consistency.
-Built with React Native (frontend) and FastAPI (backend) using PostgreSQL with SQLAlchemy ORM.
+A cross-platform web application for logging workouts, tracking progress, and maintaining fitness consistency.
+Built with React + Vite (frontend) and FastAPI (backend) using PostgreSQL with SQLAlchemy ORM.
 
 ## Overview
 
@@ -10,13 +10,14 @@ Users can log workouts, browse exercise libraries, create custom exercises, view
 
 ## Tech Stack
 
-- Frontend: React Native
+- Frontend: React (Vite)
 - Backend: FastAPI (Python)
 - Database: PostgreSQL
 - ORM: SQLAlchemy
 
 ## Features
 
+- Secure user authentication (signup, login)
 - Live workout logging
 - Exercise library (predefined and custom)
 - Workout templates
@@ -24,4 +25,3 @@ Users can log workouts, browse exercise libraries, create custom exercises, view
 - Graphical progress visualization
 - Data export (CSV, PDF)
 - Streaks and reminders
-- Secure user authentication (signup, login)
