@@ -6,6 +6,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/init_db.py && uvicorn main:app --host 0.0.0.0 --port $PORT
     plan: free
+    pythonVersion: "3.11.9"
     envVars:
       - key: DATABASE_URL
         sync: false
