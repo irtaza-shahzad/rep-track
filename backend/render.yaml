@@ -19,3 +19,5 @@ services:
         value: "60"
       - key: ALLOWED_ORIGINS
         sync: false
+      - key: ENVIRONMENT
+        value: production

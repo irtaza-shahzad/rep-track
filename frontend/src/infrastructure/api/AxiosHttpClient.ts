@@ -26,6 +26,7 @@ export class AxiosHttpClient implements IHttpClient {
         this.axiosInstance = axios.create({
             baseURL: API_CONFIG.BASE_URL,
             timeout: API_CONFIG.TIMEOUT,
+            withCredentials: true,
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -48,18 +49,9 @@ export class AxiosHttpClient implements IHttpClient {
      * Setup request and response interceptors
      */
     private setupInterceptors(): void {
-        // Request interceptor - add auth token
         this.axiosInstance.interceptors.request.use(
-            (config) => {
-                const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-                if (token && config.headers) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
-                return config;
-            },
-            (error) => {
-                return Promise.reject(this.handleError(error));
-            }
+            (config) => config,
+            (error) => Promise.reject(this.handleError(error))
         );
 
         // Response interceptor - handle errors
@@ -82,8 +74,6 @@ export class AxiosHttpClient implements IHttpClient {
 
             switch (status) {
                 case 401:
-                    // Clear auth data on authentication error
-                    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
                     localStorage.removeItem(STORAGE_KEYS.USER_DATA);
                     return new AuthenticationException(message);
 

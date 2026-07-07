@@ -30,7 +30,16 @@ from app.models.user_stats_model import UserStats, UserStatsTimeseries, WorkoutS
 from app.models.streak_model import Streak
 from app.models.reminder_model import Reminder
 
-app = FastAPI(title="Workout Tracker API")
+docs_url = None if settings.is_production else "/docs"
+redoc_url = None if settings.is_production else "/redoc"
+openapi_url = None if settings.is_production else "/openapi.json"
+
+app = FastAPI(
+    title="Workout Tracker API",
+    docs_url=docs_url,
+    redoc_url=redoc_url,
+    openapi_url=openapi_url,
+)
 app.openapi = lambda: custom_openapi(app)
 
 # Rate limiting

@@ -54,14 +54,9 @@ const Settings = () => {
   // Get current user info
   const currentUser = authService.getCurrentUser();
 
-  const handleLogout = () => {
-    // Clear workout context before logout
+  const handleLogout = async () => {
     endWorkout();
-    
-    // Clear all user data (auth, drafts, cache, preferences)
-    authService.logout();
-    
-    // Navigate to login
+    await authService.logout();
     navigate('/');
   };
 

@@ -6,7 +6,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+    ENVIRONMENT: str = "development"
     ALLOWED_ORIGINS: str = "http://localhost:8080,http://localhost:5173"
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.lower() == "production"
 
     @property
     def cors_origins(self) -> List[str]:

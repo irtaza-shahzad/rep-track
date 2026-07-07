@@ -132,11 +132,11 @@ export class AuthStorage {
   }
 
   getToken(): string | null {
-    return this.storage.get<string>(STORAGE_KEYS.AUTH_TOKEN);
+    return null;
   }
 
-  setToken(token: string): void {
-    this.storage.set(STORAGE_KEYS.AUTH_TOKEN, token);
+  setToken(_token: string): void {
+    // Token is stored in an HttpOnly cookie by the backend
   }
 
   removeToken(): void {
@@ -162,7 +162,7 @@ export class AuthStorage {
   }
 
   isAuthenticated(): boolean {
-    return this.storage.has(STORAGE_KEYS.AUTH_TOKEN);
+    return this.getUser() !== null;
   }
 }
 

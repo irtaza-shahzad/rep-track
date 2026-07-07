@@ -16,7 +16,7 @@ const ReminderPollingProvider = () => {
     const isAuthPage = location.pathname === '/' || location.pathname === '/login';
     
     // Check if user is authenticated
-    const isAuthenticated = !!authStorage.getToken();
+    const isAuthenticated = authStorage.isAuthenticated();
 
     if (isAuthPage || !isAuthenticated) {
       clearShownReminders();

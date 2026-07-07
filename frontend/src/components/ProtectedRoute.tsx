@@ -1,24 +1,29 @@
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { authStorage } from '@/infrastructure/storage/LocalStorageAdapter';
+import { authService } from '@/services/authService';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-/**
- * Protected Route Component
- * Checks if user is authenticated before rendering children
- * Redirects to landing page if not authenticated
- */
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const isAuthenticated = authStorage.isAuthenticated();
+  const [isReady, setIsReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    authService.restoreSession()
+      .then(setIsAuthenticated)
+      .finally(() => setIsReady(true));
+  }, []);
+
+  if (!isReady) {
+    return null;
+  }
 
   if (!isAuthenticated) {
-    // Redirect to landing page if not authenticated
     return <Navigate to="/" replace />;
   }
 
-  // Render the protected page if authenticated
   return <>{children}</>;
 };
 

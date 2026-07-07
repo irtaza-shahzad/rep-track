@@ -1,11 +1,10 @@
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
 from app.models.user_model import User 
 from app.api.schemas.user_schema import UserCreate
 from app.core.security.hashing import hash_password, verify_password
 from app.core.security.jwt_handler import create_access_token
-from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from app.core.security.dependencies import extract_access_token
 from app.core.database import get_db
 from jose import JWTError, jwt
 from app.core.config import settings
@@ -39,10 +38,8 @@ def authenticate_local(db: Session, email: str, password: str):
     token = create_access_token({"sub": str(user.id), "email": user.email})
     return user, token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: str = Depends(extract_access_token),
     db: Session = Depends(get_db)
 ):
     credentials_exception = HTTPException(
@@ -59,7 +56,7 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
 

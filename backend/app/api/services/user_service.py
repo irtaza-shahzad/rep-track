@@ -2,9 +2,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.user_model import User
 from app.api.schemas.user_schema import UserUpdate
-
-def get_all_users(db: Session) -> list[User]:
-    return db.query(User).all()
+from app.core.security.hashing import hash_password
 
 def get_user_by_id(db: Session, user_id: int) -> User:
     user = db.query(User).filter(User.id == user_id).first()
@@ -24,9 +22,9 @@ def update_user(db: Session, user_id: int, payload: UserUpdate) -> User:
         )
 
     if payload.name:
-        user.name = payload.name 
+        user.name = payload.name
     if payload.password:
-        user.password = payload.password
+        user.password = hash_password(payload.password)
 
     db.commit()
     db.refresh(user)
