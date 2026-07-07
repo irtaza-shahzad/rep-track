@@ -1,9 +1,14 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 
 class LoginRequest(BaseModel):
     email: EmailStr = Field(..., description="User's registered email address")
-    password: str = Field(..., description="Password for authentication")
+    password: str = Field(..., min_length=1, max_length=128, description="Password for authentication")
+
+    @field_validator('email')
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
 
     model_config = {
         "json_schema_extra": {

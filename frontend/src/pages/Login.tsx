@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,86 +12,107 @@ import { useToast } from '@/hooks/use-toast';
 import { authService } from '@/services/authService';
 import { logger } from '@/lib/logger';
 
+const signupSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name is too long')
+    .regex(/^[a-zA-Z\s\-'.]+$/, 'Name may only contain letters, spaces, hyphens, apostrophes, or periods'),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Enter a valid email address')
+    .max(255, 'Email is too long'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password is too long')
+    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Must contain at least one lowercase letter')
+    .regex(/\d/, 'Must contain at least one number'),
+});
+
+const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email('Enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+type SignupFormData = z.infer<typeof signupSchema>;
+type LoginFormData = z.infer<typeof loginSchema>;
+
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const loginForm = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  const signupForm = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { fullName: '', email: '', password: '' },
+  });
+
   useEffect(() => {
-    // Set initial state based on navigation from Welcome page
     if (location.state?.isSignUp !== undefined) {
       setIsLogin(!location.state.isSignUp);
     }
   }, [location]);
 
-  // Clear form when switching between login and signup
   const handleToggleMode = () => {
-    setIsLogin(!isLogin);
-    setFullName('');
-    setEmail('');
-    setPassword('');
+    setIsLogin((prev) => !prev);
+    loginForm.reset();
+    signupForm.reset();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = loginForm.handleSubmit(async (data) => {
     setIsLoading(true);
-
     try {
-      if (isLogin) {
-        // Login
-        await authService.login({ email, password });
-        toast({
-          title: 'Welcome back!',
-          description: 'Successfully signed in',
-        });
-      } else {
-        // Register - validate full name is provided
-        if (!fullName.trim()) {
-          toast({
-            title: 'Error',
-            description: 'Please enter your full name',
-            variant: 'destructive',
-          });
-          setIsLoading(false);
-          return;
-        }
-        await authService.register({ name: fullName, email, password });
-        
-        // Show success message and switch to login
-        toast({
-          title: 'Account created!',
-          description: 'Please sign in with your credentials',
-        });
-        
-        // Clear form and switch to login mode
-        setFullName('');
-        setPassword('');
-        setIsLogin(true);
-        setIsLoading(false);
-        return;
-      }
+      await authService.login({ email: data.email, password: data.password });
+      toast({ title: 'Welcome back!', description: 'Successfully signed in' });
       navigate('/dashboard');
-    } catch (error: any) {
-      // Use logger for safe error handling - no sensitive data logged
-      logger.error('Authentication failed', { isLogin });
-      const errorMessage = error.response?.data?.detail 
-        || error.response?.data?.message 
-        || error.message 
-        || 'Authentication failed';
+    } catch (error: unknown) {
+      logger.error('Authentication failed', { isLogin: true });
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string };
       toast({
         title: 'Error',
-        description: errorMessage,
+        description: err.response?.data?.detail || err.response?.data?.message || err.message || 'Login failed',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  });
+
+  const handleSignup = signupForm.handleSubmit(async (data) => {
+    setIsLoading(true);
+    try {
+      await authService.register({ name: data.fullName.trim(), email: data.email, password: data.password });
+      toast({ title: 'Account created!', description: 'Please sign in with your credentials' });
+      signupForm.reset();
+      setIsLogin(true);
+    } catch (error: unknown) {
+      logger.error('Authentication failed', { isLogin: false });
+      const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      toast({
+        title: 'Error',
+        description: err.response?.data?.detail || err.response?.data?.message || err.message || 'Registration failed',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  });
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -102,60 +126,96 @@ const Login = () => {
             {isLogin ? 'Sign in to continue your fitness journey' : 'Create your account to start tracking'}
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" key={isLogin ? 'login' : 'signup'}>
-            {!isLogin && (
+          {isLogin ? (
+            <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  autoComplete="off"
+                  className="rounded-xl"
+                  {...loginForm.register('email')}
+                />
+                {loginForm.formState.errors.email && (
+                  <p className="text-sm text-destructive">{loginForm.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Password</Label>
+                <Input
+                  id="login-password"
+                  type="password"
+                  placeholder="••••••••"
+                  autoComplete="off"
+                  className="rounded-xl"
+                  {...loginForm.register('password')}
+                />
+                {loginForm.formState.errors.password && (
+                  <p className="text-sm text-destructive">{loginForm.formState.errors.password.message}</p>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Please wait...' : 'Sign In'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignup} className="space-y-4" autoComplete="off">
               <div className="space-y-2">
                 <Label htmlFor="signup-fullName">Full Name</Label>
                 <Input
                   id="signup-fullName"
-                  name="signup-fullName"
                   type="text"
                   placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required={!isLogin}
                   autoComplete="off"
                   className="rounded-xl"
+                  {...signupForm.register('fullName')}
                 />
+                {signupForm.formState.errors.fullName && (
+                  <p className="text-sm text-destructive">{signupForm.formState.errors.fullName.message}</p>
+                )}
               </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor={isLogin ? "login-email" : "signup-email"}>Email</Label>
-              <Input
-                id={isLogin ? "login-email" : "signup-email"}
-                name={isLogin ? "login-email" : "signup-email"}
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="off"
-                className="rounded-xl"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor={isLogin ? "login-password" : "signup-password"}>Password</Label>
-              <Input
-                id={isLogin ? "login-password" : "signup-password"}
-                name={isLogin ? "login-password" : "signup-password"}
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="off"
-                className="rounded-xl"
-              />
-            </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="signup-email">Email</Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  autoComplete="off"
+                  className="rounded-xl"
+                  {...signupForm.register('email')}
+                />
+                {signupForm.formState.errors.email && (
+                  <p className="text-sm text-destructive">{signupForm.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-password">Password</Label>
+                <Input
+                  id="signup-password"
+                  type="password"
+                  placeholder="••••••••"
+                  autoComplete="off"
+                  className="rounded-xl"
+                  {...signupForm.register('password')}
+                />
+                {signupForm.formState.errors.password && (
+                  <p className="text-sm text-destructive">{signupForm.formState.errors.password.message}</p>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Please wait...' : 'Create Account'}
+              </Button>
+            </form>
+          )}
 
           <div className="mt-6 text-center text-sm">
             <button

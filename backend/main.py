@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from app.api.routers import (
     user_router, 
     auth_router, 
@@ -11,7 +14,9 @@ from app.api.routers import (
     reminder_router,
     export_router
 )
-from app.core.open_api import custom_openapi 
+from app.core.open_api import custom_openapi
+from app.core.config import settings
+from app.core.limiter import limiter
 
 # Import models so SQLAlchemy registers them
 from app.models.user_model import User
@@ -28,10 +33,15 @@ from app.models.reminder_model import Reminder
 app = FastAPI(title="Workout Tracker API")
 app.openapi = lambda: custom_openapi(app)
 
-# Add CORS middleware for frontend
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# CORS — origins are controlled via ALLOWED_ORIGINS in .env
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:5173"],  # Frontend URLs
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
